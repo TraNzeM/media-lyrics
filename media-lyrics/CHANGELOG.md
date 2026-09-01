@@ -4,6 +4,22 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] — 2026-09-01
+
+### Changed
+
+- `dependencies = ["busctl"]` declared in the manifest (community-plugins
+  review rule: every shelled-out command must be declared).
+- `description` fixed — «ring progress» was removed in v0.8.0 (replaced by
+  the header progress bar); catalog copy now reads «progress bar» (111/120).
+
+### Removed
+
+- `translations/ru.json` — community rule is en.json only; other locales are
+  handled via Noctalia Translate.
+- ROADMAP link from the plugin README (roadmap lives outside the plugin
+  directory in the community-plugins layout).
+
 ## [0.8.1] — 2026-09-01
 
 ### Changed
