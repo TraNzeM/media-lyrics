@@ -45,6 +45,11 @@ default = "~/.local/share/media-lyrics"
 id = "now-playing"
 entry = "widget.luau"
 
+  # Free the middle button for play/pause — the host default opens the
+  # widget's settings instead. Declared so onMiddleClick works out of the box.
+  [widget.actions]
+  middle = "none"
+
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
 [[service]]

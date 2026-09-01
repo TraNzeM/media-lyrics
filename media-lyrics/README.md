@@ -94,6 +94,7 @@ Upcoming work, roughly in priority order:
 - [ ] Clickable lyric lines — click a line to seek the track to that moment
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
+- [ ] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box
 
 See [docs/ROADMAP.md](../docs/ROADMAP.md) for the detailed knowledge base.
 

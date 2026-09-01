@@ -10,7 +10,7 @@ without naming them), and design decisions worth remembering.
       (rounded-rect) instead of a plain square; animated ring progress around
       it is a stretch goal.
 - [ ] **Additional lyric sources** — NetEase, Musixmatch, Spotify, embedded
-      MPRIS metadata (`xesam:asText`), custom URL. LRCLIB stays the default
+      MPRIS metadata (`xesam:asText`). LRCLIB stays the default
       with automatic fallback in the declared order.
 - [ ] **Clickable lyric lines** — click a line to seek the player to that
       timestamp (D-Bus `Seek` with offset = line time − current pos).
@@ -19,6 +19,10 @@ without naming them), and design decisions worth remembering.
       missing).
 - [ ] **Compact mode with a pinnable widget** — a mini panel (cover + current
       line only) that can be pinned to the desktop / bar.
+- [ ] **Preconfigured widget actions** — declare default gestures in
+      plugin.toml (`[widget.actions]`: `middle = "none"` frees the middle
+      button for play/pause; scroll_up/scroll_down for track switching) so
+      the bar widget works out of the box without per-user gesture binding.
 
 ## Research: what alternative lyric plugins do (and what to borrow)
 
