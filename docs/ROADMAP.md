@@ -23,6 +23,8 @@ without naming them), and design decisions worth remembering.
       plugin.toml (`[widget.actions]`: `middle = "none"` frees the middle
       button for play/pause; scroll_up/scroll_down for track switching) so
       the bar widget works out of the box without per-user gesture binding.
+- [ ] **Widget size setting** — expose the bar widget's size (glyph size,
+      title length, scale) as plugin settings instead of hard-coded constants.
 
 ## Research: what alternative lyric plugins do (and what to borrow)
 

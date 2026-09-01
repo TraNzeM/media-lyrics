@@ -95,6 +95,7 @@ Upcoming work, roughly in priority order:
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
 - [ ] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box
+- [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
 
 See [docs/ROADMAP.md](../docs/ROADMAP.md) for the detailed knowledge base.
 

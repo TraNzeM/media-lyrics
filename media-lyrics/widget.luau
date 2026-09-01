@@ -30,9 +30,12 @@ local function renderFrom(m)
   end
   local g = m.playing and glyphPause or glyphPlay
   local title = truncate(m.title ~= "" and m.title or "No title")
+  -- No explicit color roles: the host applies the widget instance's Color /
+  -- Icon Color settings (Default = theme role). Explicit roles here would
+  -- silently ignore the user's per-widget color configuration.
   barWidget.render(ui.row({ gap = 6, align = "center" }, {
-    ui.glyph({ name = g, size = 14, color = m.playing and "primary" or "on_surface_variant" }),
-    ui.label({ text = title, fontSize = 12, color = "on_surface" }),
+    ui.glyph({ name = g, size = 14 }),
+    ui.label({ text = title, fontSize = 12 }),
   }))
 end
 
