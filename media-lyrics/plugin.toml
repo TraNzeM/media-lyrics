@@ -16,7 +16,7 @@ author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
-description = "Synced lyrics media panel: karaoke carousel, ring progress, marquee titles. Pure Luau, no external dependencies."
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau, no external dependencies."
 dependencies = ["busctl"]
 
 [[setting]]
