@@ -187,37 +187,33 @@ end
 --     frame is the image's own border (ui.image border/borderWidth/radius);
 --   * vertical ui.progress bars do not render at all -> single horizontal
 --     native progress bar under the art (agreed auto-fallback).
-local function buildCoverRing(s)
+local function buildCover(s)
   local COVER = T.cover
-  local BAR = T.ring
-  local total = s.lengthSec or 0
-  local cur = interpPos(s)
-  local frac = (total > 0) and math.min(1, cur / total) or 0
-
-  local coverInner
   if s.artUrl and s.artUrl ~= "" then
-    coverInner = ui.image({
+    return ui.image({
       key = "cover", path = s.artUrl, width = COVER, height = COVER,
       fit = "cover", radius = T.coverRadius,
       border = T.ringTrack, borderWidth = 1,
       onClick = function() sendCmd("toggle") end,
     })
   else
-    coverInner = ui.box({ key = "coverbox", width = COVER, height = COVER,
+    return ui.box({ key = "coverbox", width = COVER, height = COVER,
       fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
         ui.glyph({ name = "disc", size = 44, color = "on_surface_variant" }),
       })
   end
+end
 
-  -- one native bar under the art, spanning exactly the art width
-  local bar = ui.progress({ key = "pbar", progress = frac,
+local function buildProgressBar(s)
+  local total = s.lengthSec or 0
+  local cur = interpPos(s)
+  local frac = (total > 0) and math.min(1, cur / total) or 0
+  return ui.progress({
+    key = "pbar", progress = frac,
     fill = T.ringFill, track = T.ringTrack,
-    width = COVER, height = BAR, radius = BAR / 2 })
-
-  return
-    ui.column({ key = "ringCol", gap = 0, align = "center" }, { coverInner }),
-    ui.column({ key = "ringColMid", gap = 0, align = "center" }, { bar })
+    width = "stretch", height = T.ring, radius = T.ring / 2
+  })
 end
 
 -- ============================= header (cover + info + transport) =============================
@@ -229,7 +225,7 @@ local function buildInfoRow(s)
     }) }
   end
 
-  local topEdge, coverMid, bottomEdge = buildCoverRing(s)
+  local cover = buildCover(s)
 
   local function ctl(glyph, action, enabled, size)
     return ui.button({
@@ -258,19 +254,33 @@ local function buildInfoRow(s)
       fontSize = T.fsTime, color = T.colTime }),
   })
 
-  -- middle block: title + artist - album (album debuts here). VERIFIED LIVE:
-  -- a stretched label centers its text in Noctalia's panel host regardless of
-  -- textAlign, so the column must HUG its content (no flexGrow, maxWidth caps
-  -- long titles) and a springer pushes transport to the right edge.
+  -- middle block: title + artist - album. PATTERN FROM COMMUNITY/TODO +
+  -- spotify-media (verified across upstream plugins): text pinned left inside
+  -- a fixed-width block works as a BUTTON with contentAlign = "start"; labels
+  -- center their text in a stretched box (textAlign has no effect there).
+  -- Truncation stays in Lua; the button width caps both lines.
+  local TEXT_W = 286            -- cover 52 + gap 12 + text 286 + transport ~130 < 511 usable
   local artistLine = s.artist ~= "" and s.artist or "Unknown artist"
   if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
+  -- truncate in Lua: buttons lack maxLines; long lines would overflow
+  local function ellipsize(text, maxChars)
+    text = tostring(text or "")
+    if #text <= maxChars then return text end
+    return text:sub(1, maxChars - 3) .. "…"
+  end
+  local function textLine(key, text, fs, weight, colr)
+    -- button props verified against host warnings: text/variant/contentAlign/
+    -- fontSize/width/height are accepted; maxLines/color/fontWeight are NOT.
+    return ui.button({
+      key = key, text = text, variant = "ghost", contentAlign = "start",
+      fontSize = fs,
+      width = TEXT_W, height = fs * 1.35,
+    })
+  end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    ui.label({ key = "ttl", text = s.title ~= "" and s.title or "(no title)",
-      fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle,
-      maxLines = 1, maxWidth = 280 }),
-    ui.label({ key = "art", text = artistLine,
-      fontSize = T.fsMeta, color = T.colMeta,
-      maxLines = 2, maxWidth = 280 }),
+    textLine("ttl", ellipsize(s.title ~= "" and s.title or "(no title)", 26),
+      T.fsTitle, "semibold", T.colTitle),
+    textLine("art", ellipsize(artistLine, 36), T.fsMeta, "regular", T.colMeta),
   })
 
   -- single band, everything centered on the art's vertical axis
@@ -278,7 +288,7 @@ local function buildInfoRow(s)
     ui.row({ key = "infoRow", align = "center", justify = "start", height = 62 }, {
       ui.column({ key = "coverWrap", gap = 1, align = "center",
         width = T.cover + 2 }, {
-          topEdge, coverMid, bottomEdge,
+          cover,
         }),
       ui.spacer({ key = "coverGap", width = T.gapInline }),
       infoCol,
@@ -322,8 +332,8 @@ local function render()
     }),
     -- B. info band (cover | info | transport)
     infoRow[1],
-    -- hairline (the only separator in the interface)
-    ui.separator({ key = "hair", thickness = 1, color = T.hairline }),
+    -- progress bar replacing the hairline separator
+    buildProgressBar(s),
     -- C. lyrics (flexGrow)
     ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, buildLyricsBody(s)),
     -- D. footer: provider - mode
