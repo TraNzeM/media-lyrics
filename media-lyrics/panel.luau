@@ -454,25 +454,32 @@ end
 
 -- ============================= state wiring =============================
 
+-- VERIFIED BY PROBE (this host build): the host NEVER calls update() or
+-- onFrameTick for [[panel]] entries — both counters stayed 0 with
+-- setWantsSecondTicks(true) + setNeedsFrameTick(true). The ONLY periodic
+-- signal a panel gets is the service's media publishes (POLL_MS = 500ms):
+-- the service re-sets noctalia.state("media") on every poll, and watch()
+-- fires per publish. So the marquee clock MUST tick inside the media watch,
+-- using the wall-clock delta between publishes.
 noctalia.state.watch("media", function(value)
+  local now = nowMs()
+  if lastSnapMs > 0 then
+    local deltaSec = (now - lastSnapMs) / 1000
+    -- clamp: a long gap (panel closed / track change pause) must not
+    -- fast-forward the marquee
+    if deltaSec > 0 and deltaSec < 2.0 then
+      if tickMarquee then tickMarquee(deltaSec) end
+    end
+  end
   snap = value
   lastSnapMs = nowMs()
   render()
 end)
 
+-- update() is never called by the host for panels in this build (verified
+-- with a live counter probe). Kept as a harmless no-op so the entry stays
+-- API-correct if a future build starts ticking panels.
 function update()
-  -- marquee clock: run between renders so the scroll animates smoothly.
-  -- Second ticks arrive ~every 1.0s; clamp to 1.6s (else a 1.0x delta is
-  -- dropped every tick and the marquee never advances).
-  if _marqueeLast then
-    local now = os.clock()
-    local delta = now - _marqueeLast
-    _marqueeLast = now
-    if delta > 0 and delta < 1.6 then tickMarquee(delta) end
-  else
-    _marqueeLast = os.clock()
-  end
-  render()
 end
 
 function onOpen(_context)
