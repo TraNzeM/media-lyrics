@@ -64,6 +64,9 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
+| `widget_max_chars` | `int` | `26` | Max characters of the track title in the bar widget before truncation. |
+| `widget_glyph_size` | `int` | `14` | Size of the play/pause icon in the bar widget. |
+| `widget_font_size` | `int` | `12` | Font size of the track title in the bar widget. |
 
 ## IPC
 
@@ -88,10 +91,10 @@ Upcoming work, roughly in priority order:
 - [ ] Album cover inside a capsule shape
 - [ ] Additional lyric sources (NetEase, Musixmatch, embedded MPRIS metadata, …)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
-- [ ] Seek on progress-bar click
+- [ ] Seek on progress-bar click — BLOCKED: the host's click handlers carry no coordinates, so the click position on the bar can't be translated to a timestamp
 - [ ] Compact mode with a pinnable widget
 - [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
-- [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
+- [x] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings (DONE in 0.8.6: `widget_max_chars` / `widget_glyph_size` / `widget_font_size`)
 
 ## Notes
 

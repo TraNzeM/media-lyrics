@@ -11,6 +11,18 @@
     "local_lyrics_dir": {
       "label": "Local lyrics folder",
       "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB."
+    },
+    "widget_max_chars": {
+      "label": "Widget title length",
+      "description": "Max characters of the track title in the bar widget before truncation."
+    },
+    "widget_glyph_size": {
+      "label": "Widget icon size",
+      "description": "Size of the play/pause icon in the bar widget."
+    },
+    "widget_font_size": {
+      "label": "Widget font size",
+      "description": "Font size of the track title in the bar widget."
     }
   }
 }

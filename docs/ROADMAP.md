@@ -16,8 +16,9 @@ without naming them), and design decisions worth remembering.
       timestamp (D-Bus `Seek` with offset = line time − current pos).
       DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
 - [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
-      track (service already exposes `Seek`; panel-side click handling is
-      missing).
+      track. **BLOCKED by host**: click handlers (`onClick`/`onHover`) carry
+      no coordinates, so a click position cannot be translated to a
+      timestamp. Would need host-side pointer-position support.
 - [ ] **Compact mode with a pinnable widget** — a mini panel (cover + current
       line only) that can be pinned to the desktop / bar.
 - [x] **Preconfigured widget actions** — declare default gestures in
@@ -25,8 +26,10 @@ without naming them), and design decisions worth remembering.
       button for play/pause; scroll_up/scroll_down for track switching) so
       the bar widget works out of the box without per-user gesture binding.
       DONE in 0.8.1 (middle), scroll via onScroll in widget.luau.
-- [ ] **Widget size setting** — expose the bar widget's size (glyph size,
+- [x] **Widget size setting** — expose the bar widget's size (glyph size,
       title length, scale) as plugin settings instead of hard-coded constants.
+      DONE in 0.8.6: `widget_max_chars` (26), `widget_glyph_size` (14),
+      `widget_font_size` (12) — read via `noctalia.getConfig` in widget.luau.
 
 ## Research: what alternative lyric plugins do (and what to borrow)
 
