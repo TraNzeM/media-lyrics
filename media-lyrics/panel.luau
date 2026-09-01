@@ -367,7 +367,7 @@ local function buildInfoRow(s)
     return ui.button({
       key = key, text = shown, variant = "ghost", contentAlign = "start",
       fontSize = fs,
-      width = TEXT_W, height = fs * 1.35,
+      width = TEXT_W, height = math.floor(fs * 1.35 + 0.5),
     })
   end
 
@@ -450,12 +450,13 @@ end)
 
 function update()
   -- marquee clock: run between renders so the scroll animates smoothly.
-  -- os.clock delta survives irregular tick spacing (second ticks + polls).
+  -- Second ticks arrive ~every 1.0s; clamp to 1.6s (else a 1.0x delta is
+  -- dropped every tick and the marquee never advances).
   if _marqueeLast then
     local now = os.clock()
     local delta = now - _marqueeLast
     _marqueeLast = now
-    if delta > 0 and delta < 1 then tickMarquee(delta) end
+    if delta > 0 and delta < 1.6 then tickMarquee(delta) end
   else
     _marqueeLast = os.clock()
   end
