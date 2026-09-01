@@ -63,6 +63,7 @@ local T = {
 local snap = nil       -- latest snapshot from the service
 local viewOffset = 0   -- manual lyric scroll offset from the playback line
 local lastSnapMs = 0
+tickMarquee = nil      -- set by buildInfoRow; advances marquee clocks
 
 local function nowMs()
   local ok, v = pcall(function() return noctalia.nowMs() end)
@@ -254,33 +255,145 @@ local function buildInfoRow(s)
       fontSize = T.fsTime, color = T.colTime }),
   })
 
-  -- middle block: title + artist - album. PATTERN FROM COMMUNITY/TODO +
-  -- spotify-media (verified across upstream plugins): text pinned left inside
-  -- a fixed-width block works as a BUTTON with contentAlign = "start"; labels
-  -- center their text in a stretched box (textAlign has no effect there).
-  -- Truncation stays in Lua; the button width caps both lines.
+  -- middle block: title + artist - album (no wrap, marquee for overflow).
+  -- PATTERN FROM COMMUNITY/TODO + lyrics.luau: text pinned left inside a
+  -- fixed-width BUTTON (contentAlign = "start"); a line that does not fit is
+  -- NOT ellipsized - it stays static for MARQUEE_HOLD seconds, then scrolls
+  -- char-by-char (charUnits widths), holds at the end, and scrolls back.
+  -- Height never jumps: button height is fixed per line.
   local TEXT_W = 286            -- cover 52 + gap 12 + text 286 + transport ~130 < 511 usable
+  local MARQUEE_HOLD = 2        -- seconds of static display before scrolling
+  local MARQUEE_SPEED = 24      -- pixels per second
   local artistLine = s.artist ~= "" and s.artist or "Unknown artist"
   if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
-  -- truncate in Lua: buttons lack maxLines; long lines would overflow
-  local function ellipsize(text, maxChars)
-    text = tostring(text or "")
-    if #text <= maxChars then return text end
-    return text:sub(1, maxChars - 3) .. "…"
+
+  -- UTF-8 aware char split + per-char width units (community/lyrics scheme)
+  local function toChars(text)
+    local chars = {}
+    local i = 1
+    while i <= #text do
+      local byte = text:byte(i)
+      local len = 1
+      if byte >= 0xF0 then len = 4 elseif byte >= 0xE0 then len = 3
+      elseif byte >= 0xC0 then len = 2 end
+      chars[#chars + 1] = text:sub(i, i + len - 1)
+      i = i + len
+    end
+    return chars
   end
+  local function charUnits(char)
+    if char == " " or char == "\t" then return 0.35 end
+    local byte = char:byte(1) or 0
+    if byte < 0x80 then
+      if char:match("[%.,:;!'|ilI%-%(%)]") then return 0.38 end
+      if char:match("[MW@#%%&]") then return 0.85 end
+      return 0.58
+    end
+    return 1
+  end
+  local function textUnits(text)
+    local u = 0
+    for _, ch in ipairs(toChars(text)) do u = u + charUnits(ch) end
+    return u
+  end
+  -- viewport capacity in width units: TEXT_W px at ~13px/cell reference
+  local VW_UNITS = TEXT_W / 13
+
+  local function shouldMarquee(text)
+    return textUnits(text) > VW_UNITS
+  end
+
+  -- scroll timing per line: static hold -> slow travel -> hold -> back
+  local marqueeState = {}          -- [key] = { text, elapsed }
+  local function marqueeUnits(chUnits)
+    local distance = math.max(0, #chUnits - math.max(1, VW_UNITS))
+    if distance <= 0 then return 0 end
+    local cellsPerSec = math.max(0.5, MARQUEE_SPEED / 13)
+    local travel = distance / cellsPerSec
+    local cycle = MARQUEE_HOLD * 2 + travel * 2
+    local phase = (marqueeState.phase or 0) % cycle
+    if phase < MARQUEE_HOLD then return 0 end
+    phase = phase - MARQUEE_HOLD
+    if phase < travel then return distance * (phase / travel) end
+    phase = phase - travel
+    if phase < MARQUEE_HOLD then return distance end
+    phase = phase - MARQUEE_HOLD
+    return distance * (1 - phase / travel)
+  end
+
+  local function marqueeSlice(chars, offset)
+    -- visible window of VW_UNITS starting at fractional char offset
+    local out, used, i = {}, 0, 1
+    local skip = math.floor(offset)
+    local frac = offset - skip
+    local index = skip + 1
+    while index <= #chars and used < VW_UNITS do
+      local w = charUnits(chars[index])
+      if used + w > VW_UNITS then break end
+      out[#out + 1] = chars[index]
+      used = used + w
+      index = index + 1
+    end
+    return table.concat(out)
+  end
+
   local function textLine(key, text, fs, weight, colr)
-    -- button props verified against host warnings: text/variant/contentAlign/
-    -- fontSize/width/height are accepted; maxLines/color/fontWeight are NOT.
+    local state = marqueeState[key]
+    if state == nil or state.text ~= text then
+      state = { text = text, elapsed = 0, phase = 0 }
+      marqueeState[key] = state
+    end
+    local shown = text
+    if shouldMarquee(text) then
+      local chars = toChars(text)
+      local widths = {}
+      for i, ch in ipairs(chars) do widths[i] = charUnits(ch) end
+      local trailing = 0
+      local units = 0
+      for i = #chars, 1, -1 do
+        local nu = units + widths[i]
+        if nu > VW_UNITS then break end
+        units = nu
+        trailing = trailing + 1
+      end
+      local distance = math.max(0, #chars - math.max(1, trailing))
+      if distance > 0 then
+        local cellsPerSec = math.max(0.5, MARQUEE_SPEED / 13)
+        local travel = distance / cellsPerSec
+        local cycle = MARQUEE_HOLD * 2 + travel * 2
+        local phase = state.elapsed % cycle
+        local off
+        if phase < MARQUEE_HOLD then off = 0
+        else
+          phase = phase - MARQUEE_HOLD
+          if phase < travel then off = distance * (phase / travel)
+          else
+            phase = phase - travel
+            if phase < MARQUEE_HOLD then off = distance
+            else
+              phase = phase - MARQUEE_HOLD
+              off = distance * (1 - phase / travel)
+            end
+          end
+        end
+        shown = marqueeSlice(chars, math.floor(off))
+      end
+    end
     return ui.button({
-      key = key, text = text, variant = "ghost", contentAlign = "start",
+      key = key, text = shown, variant = "ghost", contentAlign = "start",
       fontSize = fs,
       width = TEXT_W, height = fs * 1.35,
     })
   end
+
+  -- advance marquee timers between renders (called from update())
+  tickMarquee = function(deltaSec)
+    for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
+  end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    textLine("ttl", ellipsize(s.title ~= "" and s.title or "(no title)", 26),
+    textLine("ttl", s.title ~= "" and s.title or "(no title)",
       T.fsTitle, "semibold", T.colTitle),
-    textLine("art", ellipsize(artistLine, 36), T.fsMeta, "regular", T.colMeta),
+    textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
 
   -- single band, everything centered on the art's vertical axis
@@ -351,6 +464,16 @@ noctalia.state.watch("media", function(value)
 end)
 
 function update()
+  -- marquee clock: run between renders so the scroll animates smoothly.
+  -- os.clock delta survives irregular tick spacing (second ticks + polls).
+  if _marqueeLast then
+    local now = os.clock()
+    local delta = now - _marqueeLast
+    _marqueeLast = now
+    if delta > 0 and delta < 1 then tickMarquee(delta) end
+  else
+    _marqueeLast = os.clock()
+  end
   render()
 end
 
