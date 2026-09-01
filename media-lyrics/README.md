@@ -6,6 +6,10 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | --- | --- |
 | ![Media Lyrics panel (light)](screenshots/panel-light.png) | ![Media Lyrics panel (dark)](screenshots/panel-dark.png) |
 
+| Settings |
+| --- |
+| ![Media Lyrics settings](screenshots/settings.png) |
+
 ## Plugin
 
 | Field | Value |
@@ -50,8 +54,10 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 ## Advantages over alternative lyric plugins
 
 - **Zero external dependencies.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain. Enable → works.
+- **No background daemons.** MPRIS polling, lyric fetching, parsing and caching run inside the plugin's own service — no systemd units, no scripts to launch manually.
+- **No per-player setup.** No API tokens, no external API to enable inside a specific player, no config files. Any MPRIS player is picked up automatically.
 - **Player-agnostic.** Reads MPRIS directly via Noctalia's D-Bus aggregator — works with any player, not tied to a specific app.
-- **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 14 visible lines keeps whole verses in view.
+- **A real panel, not a 1–3 line bar widget.** Full-height carousel with 14 visible lines keeps whole verses in view, with transport controls and progress built in.
 - **Overflow handled properly.** Long titles get a marquee, single-line sanitizer strips embedded newlines, integer button heights prevent glyph overlap.
 - **Offline-friendly.** LRCLIB responses are cached; local `.lrc` files work without network at all.
 

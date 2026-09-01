@@ -1,0 +1,26 @@
+# System / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Python (should not appear, but just in case)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+
+# Local test clones / scratch
+/tmp/
