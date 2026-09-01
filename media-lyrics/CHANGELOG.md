@@ -4,6 +4,16 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.7] — 2026-09-01
+
+### Added
+
+- **Panel size presets** — `panel_size` setting (compact 440 / medium 520 /
+  large 640) selects which panel preset the bar widget and control-center
+  tile open. Three `[[panel]]` entries share one `panel.luau`; the visible
+  lyric lines scale with the preset (10 / 14 / 16). Medium keeps the
+  historical `panel` id for IPC compatibility.
+
 ## [0.8.5] — 2026-09-01
 
 ### Added

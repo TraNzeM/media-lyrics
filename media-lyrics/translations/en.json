@@ -4,6 +4,15 @@
       "label": "Lyrics offset (ms)",
       "description": "Shift lyric timing: positive values show lines earlier, negative later."
     },
+    "panel_size": {
+      "label": "Panel size",
+      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
+      "options": {
+        "compact": "Compact (440)",
+        "medium": "Medium (520)",
+        "large": "Large (640)"
+      }
+    },
     "use_cache": {
       "label": "Cache lyrics",
       "description": "Store fetched lyrics in the plugin data directory for offline reuse."

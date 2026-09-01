@@ -110,7 +110,16 @@ local marqueeState = {}   -- [key] = { text, elapsed }
 
 -- ============================= lyrics rendering =============================
 
-local VISIBLE = 14          -- lyric lines visible at once (carousel window)
+-- Visible lyric lines depend on the panel preset (panel_size setting):
+-- compact 440px fits 10, medium 520px fits 14 (historical default), large
+-- 640px fits 16.
+local function visibleLines()
+  local sz = noctalia.getConfig("panel_size")
+  if sz == "compact" then return 10 end
+  if sz == "large" then return 16 end
+  return 14
+end
+
 local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
 
 local function buildLyricsBody(s)
@@ -166,7 +175,7 @@ local function buildLyricsBody(s)
     if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
   end
 
-  local showCount = math.min(VISIBLE, n)
+  local showCount = math.min(visibleLines(), n)
   local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
   -- The window centers on the keyboard cursor line when the user moved it
   -- (Up/Down/Return/Space/scroll), otherwise on the active playback line.

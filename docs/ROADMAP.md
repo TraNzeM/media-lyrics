@@ -25,8 +25,11 @@ without naming them), and design decisions worth remembering.
       button for play/pause; scroll_up/scroll_down for track switching) so
       the bar widget works out of the box without per-user gesture binding.
       DONE in 0.8.1 (middle), scroll via onScroll in widget.luau.
-- [ ] **Widget size setting** — expose the bar widget's size (glyph size,
-      title length, scale) as plugin settings instead of hard-coded constants.
+- [x] **Widget size setting** — panel size presets instead of a fixed panel:
+      DONE in 0.8.7 — `panel_size` select (compact 440×440/10 lines, medium
+      520×520/14, large 640×640/16), three `[[panel]]` entries share one
+      panel.luau; widget + control-center tile open the selected preset.
+      (Host has no dynamic panel resize API — presets are the supported way.)
 
 ## Research: what alternative lyric plugins do (and what to borrow)
 

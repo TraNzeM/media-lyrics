@@ -30,6 +30,16 @@ noctalia msg plugins enable tranzem/media-lyrics
 noctalia msg panel-toggle tranzem/media-lyrics:panel
 ```
 
+The panel opens at the size preset selected by the `panel_size` setting
+(compact 440 / medium 520 / large 640). The `now-playing` bar widget and the
+`toggle` control-center tile both open the selected preset; you can also open
+a specific preset directly:
+
+```sh
+noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
+noctalia msg panel-toggle tranzem/media-lyrics:panel-large
+```
+
 Add the `now-playing` widget to your bar to get a compact indicator that opens the panel on click. A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 
 ```toml
@@ -61,6 +71,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `panel_size` | `select` | `medium` | Panel size preset: `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
@@ -91,7 +102,7 @@ Upcoming work, roughly in priority order:
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
 - [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
-- [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
+- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640; the bar widget itself keeps its hard-coded look)
 
 ## Notes
 
