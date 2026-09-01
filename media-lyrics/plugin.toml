@@ -1,24 +1,23 @@
 # media-lyrics — Noctalia v5 plugin: media player panel with synced lyrics.
 #
-# Adapted from Clavis shell's media player text layer:
-#   Clavis: LyricsTrackService.qml -> Clavis.Lyrics (C++: LRCLIB providers,
-#   LRC parse, cache) -> Media.qml / LyricsContent.qml (karaoke render).
-#   Noctalia port: this plugin polls Noctalia's own D-Bus MPRIS aggregator
-#   (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
-#   LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
-#   pure Luau, and exposes everything to the [[panel]] over noctalia.state.
+# Pure-Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
+# (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
+# LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
+# pure Luau, caches locally, and exposes everything to the [[panel]] over
+# noctalia.state. No playerctl, no python daemons, no external tools.
 #
 # Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.1.0"
+version = "0.8.0"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
-tags = ["media", "mpris", "lyrics", "music"]
-icon = "player-play"
-description = "Медиапанель с синхронизированным текстом песни (LRCLIB). Адаптация текстового слоя Clavis под Noctalia v5."
+tags = ["media", "music", "panel", "service"]
+icon = "music"
+description = "Synced lyrics media panel: karaoke carousel, ring progress, marquee titles. Pure Luau, no external dependencies."
+dependencies = []
 
 [[setting]]
 key = "offset_ms"
