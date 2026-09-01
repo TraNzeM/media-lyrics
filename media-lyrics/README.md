@@ -95,7 +95,7 @@ Upcoming work, roughly in priority order:
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the detailed knowledge base.
+See [docs/ROADMAP.md](../docs/ROADMAP.md) for the detailed knowledge base.
 
 ## Notes
 
