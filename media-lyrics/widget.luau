@@ -8,12 +8,23 @@
 local glyphPlay = "player-play"
 local glyphPause = "player-pause"
 
-local TITLE_MAX = 26
+-- Widget presentation settings (plugin.toml [[setting]]): size knobs for
+-- the compact now-playing indicator. getConfig returns nil for undeclared
+-- keys, so fall back to the manifest defaults.
+local function settingInt(key, fallback)
+  local v = noctalia.getConfig(key)
+  if type(v) == "number" then return math.floor(v) end
+  return fallback
+end
 
-local function truncate(s)
+local function widgetMaxChars() return settingInt("widget_max_chars", 26) end
+local function widgetGlyphSize() return settingInt("widget_glyph_size", 14) end
+local function widgetFontSize() return settingInt("widget_font_size", 12) end
+
+local function truncate(s, maxChars)
   s = tostring(s or "")
-  if #s <= TITLE_MAX then return s end
-  return s:sub(1, TITLE_MAX - 1) .. "…"
+  if #s <= maxChars then return s end
+  return s:sub(1, maxChars - 1) .. "…"
 end
 
 local function media()
@@ -23,6 +34,7 @@ local function media()
 end
 
 local function renderFrom(m)
+  local glyphSize = widgetGlyphSize()
   if not m or not m.hasPlayer then
     -- Empty state is ALSO a render() tree: the host warns that
     -- setGlyph/setText have no visible effect once a render() tree is
@@ -30,18 +42,18 @@ local function renderFrom(m)
     -- No explicit color roles — the widget instance's Color/Icon Color
     -- settings apply.
     barWidget.render(ui.row({ gap = 6, align = "center" }, {
-      ui.glyph({ name = "disc", size = 14 }),
+      ui.glyph({ name = "disc", size = glyphSize }),
     }))
     return
   end
   local g = m.playing and glyphPause or glyphPlay
-  local title = truncate(m.title ~= "" and m.title or "No title")
+  local title = truncate(m.title ~= "" and m.title or "No title", widgetMaxChars())
   -- No explicit color roles: the host applies the widget instance's Color /
   -- Icon Color settings (Default = theme role). Explicit roles here would
   -- silently ignore the user's per-widget color configuration.
   barWidget.render(ui.row({ gap = 6, align = "center" }, {
-    ui.glyph({ name = g, size = 14 }),
-    ui.label({ text = title, fontSize = 12 }),
+    ui.glyph({ name = g, size = glyphSize }),
+    ui.label({ text = title, fontSize = widgetFontSize() }),
   }))
 end
 
