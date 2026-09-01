@@ -103,6 +103,10 @@ local function sendCmd(action, extra)
   noctalia.state.set("panel_cmd", cmd)
 end
 
+-- marquee phase state lives at module scope: buildInfoRow runs on EVERY
+-- render, and a per-render table would reset elapsed to 0 each tick.
+local marqueeState = {}   -- [key] = { text, elapsed }
+
 -- ============================= lyrics rendering =============================
 
 local VISIBLE = 14          -- lyric lines visible at once (carousel window)
@@ -316,7 +320,7 @@ local function buildInfoRow(s)
   end
 
   -- scroll timing per line: static hold -> slow travel -> hold -> back
-  local marqueeState = {}          -- [key] = { text, elapsed }
+  -- (marqueeState is module-scope — see top of file)
 
   local function marqueeSlice(chars, offset)
     -- visible window of VW_UNITS starting at fractional char offset
