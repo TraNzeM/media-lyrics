@@ -305,21 +305,6 @@ local function buildInfoRow(s)
 
   -- scroll timing per line: static hold -> slow travel -> hold -> back
   local marqueeState = {}          -- [key] = { text, elapsed }
-  local function marqueeUnits(chUnits)
-    local distance = math.max(0, #chUnits - math.max(1, VW_UNITS))
-    if distance <= 0 then return 0 end
-    local cellsPerSec = math.max(0.5, MARQUEE_SPEED / 13)
-    local travel = distance / cellsPerSec
-    local cycle = MARQUEE_HOLD * 2 + travel * 2
-    local phase = (marqueeState.phase or 0) % cycle
-    if phase < MARQUEE_HOLD then return 0 end
-    phase = phase - MARQUEE_HOLD
-    if phase < travel then return distance * (phase / travel) end
-    phase = phase - travel
-    if phase < MARQUEE_HOLD then return distance end
-    phase = phase - MARQUEE_HOLD
-    return distance * (1 - phase / travel)
-  end
 
   local function marqueeSlice(chars, offset)
     -- visible window of VW_UNITS starting at fractional char offset
