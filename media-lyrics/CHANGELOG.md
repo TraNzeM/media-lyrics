@@ -4,6 +4,16 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.9] — 2026-09-01
+
+### Fixed
+
+- **Compact panel: layout fix actually wired up** — `panelLayout()` was
+  defined but never used in `buildInfoRow`; the header still rendered with
+  the fixed 520px metrics and the transport block stayed clipped at 440px.
+  `buildInfoRow` now applies the preset layout (cover size, gap, text width,
+  transport button sizes, no-player row height).
+
 ## [0.8.8] — 2026-09-01
 
 ### Fixed

@@ -295,17 +295,18 @@ end
 -- ============================= header (cover + info + transport) =============================
 
 local function buildInfoRow(s)
+  local L = panelLayout()
   if not s.hasPlayer then
-    return { ui.row({ key = "noplayer", height = T.cover + 2 * T.ring, align = "center" }, {
+    return { ui.row({ key = "noplayer", height = L.cover + 2 * T.ring, align = "center" }, {
       ui.label({ text = "No media player", color = T.emptyState, fontSize = T.fsMeta }),
     }) }
   end
 
-  local cover = buildCover(s)
+  local cover = buildCover(s, L.cover)
 
   local function ctl(glyph, action, enabled, size)
     return ui.button({
-      glyph = glyph, glyphSize = size or 18, variant = "ghost",
+      glyph = glyph, glyphSize = size or L.ctl, variant = "ghost",
       enabled = enabled ~= false, onClick = function() sendCmd(action) end,
     })
   end
@@ -318,13 +319,13 @@ local function buildInfoRow(s)
   -- quiet time label underneath, right-aligned
   local transportCol = ui.column({ key = "transportCol", gap = 2, align = "center", justify = "center" }, {
     ui.row({ gap = T.gapMicro, align = "center", justify = "end" }, {
-      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, 18),
+      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, L.ctl),
       ui.button({
-        glyph = mainGlyph, glyphSize = 22, variant = "primary",
+        glyph = mainGlyph, glyphSize = L.main, variant = "primary",
         enabled = s.hasPlayer == true, onClick = function() sendCmd("toggle") end,
         controlSize = "sm",
       }),
-      ctl(glyphFor.next, "next", s.canGoNext ~= false, 18),
+      ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl),
     }),
     ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
       fontSize = T.fsTime, color = T.colTime }),
@@ -336,7 +337,7 @@ local function buildInfoRow(s)
   -- NOT ellipsized - it stays static for MARQUEE_HOLD seconds, then scrolls
   -- char-by-char (charUnits widths), holds at the end, and scrolls back.
   -- Height never jumps: button height is fixed per line.
-  local TEXT_W = 286            -- cover 52 + gap 12 + text 286 + transport ~130 < 511 usable
+  local TEXT_W = L.textW
   local MARQUEE_HOLD = 2        -- seconds of static display before scrolling
   local MARQUEE_SPEED = 24      -- pixels per second
   -- MPRIS metadata can contain embedded newlines ("Golden Empire feat.\n
@@ -479,10 +480,10 @@ local function buildInfoRow(s)
   return {
     ui.row({ key = "infoRow", align = "center", justify = "start", height = 62 }, {
       ui.column({ key = "coverWrap", gap = 1, align = "center",
-        width = T.cover + 2 }, {
+        width = L.cover + 2 }, {
           cover,
         }),
-      ui.spacer({ key = "coverGap", width = T.gapInline }),
+      ui.spacer({ key = "coverGap", width = L.gapInline }),
       infoCol,
       ui.spacer({ key = "spring1", flexGrow = 1 }),
       transportCol,
