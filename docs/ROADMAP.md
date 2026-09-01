@@ -12,7 +12,7 @@ without naming them), and design decisions worth remembering.
 - [ ] **Additional lyric sources** — NetEase, Musixmatch, Spotify, embedded
       MPRIS metadata (`xesam:asText`). LRCLIB stays the default
       with automatic fallback in the declared order.
-- [ ] **Clickable lyric lines** — click a line to seek the player to that
+- [x] **Clickable lyric lines** — click a line to seek the player to that
       timestamp (D-Bus `Seek` with offset = line time − current pos).
       DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
 - [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
@@ -20,10 +20,11 @@ without naming them), and design decisions worth remembering.
       missing).
 - [ ] **Compact mode with a pinnable widget** — a mini panel (cover + current
       line only) that can be pinned to the desktop / bar.
-- [ ] **Preconfigured widget actions** — declare default gestures in
+- [x] **Preconfigured widget actions** — declare default gestures in
       plugin.toml (`[widget.actions]`: `middle = "none"` frees the middle
       button for play/pause; scroll_up/scroll_down for track switching) so
       the bar widget works out of the box without per-user gesture binding.
+      DONE in 0.8.1 (middle), scroll via onScroll in widget.luau.
 - [ ] **Widget size setting** — expose the bar widget's size (glyph size,
       title length, scale) as plugin settings instead of hard-coded constants.
 

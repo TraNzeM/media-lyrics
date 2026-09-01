@@ -87,10 +87,10 @@ Upcoming work, roughly in priority order:
 
 - [ ] Album cover inside a capsule shape
 - [ ] Additional lyric sources (NetEase, Musixmatch, embedded MPRIS metadata, …)
-- [ ] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
+- [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
-- [ ] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box
+- [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
 - [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
 
 ## Notes
