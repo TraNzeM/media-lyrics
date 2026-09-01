@@ -1,0 +1,8 @@
+{
+  "settings.offset_ms.label": "Сдвиг текста (мс)",
+  "settings.offset_ms.description": "Смещение тайминга строк: положительные показывают строки раньше, отрицательные — позже.",
+  "settings.use_cache.label": "Кэшировать текст",
+  "settings.use_cache.description": "Сохранять найденные тексты в каталог данных плагина для офлайн-повторного использования.",
+  "settings.local_lyrics_dir.label": "Каталог локальных текстов",
+  "settings.local_lyrics_dir.description": "Каталог с локальными .lrc файлами вида 'Исполнитель - Название.lrc'; проверяется до LRCLIB."
+}

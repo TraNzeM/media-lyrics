@@ -1,0 +1,8 @@
+{
+  "settings.offset_ms.label": "Lyrics offset (ms)",
+  "settings.offset_ms.description": "Shift lyric timing: positive values show lines earlier, negative later.",
+  "settings.use_cache.label": "Cache lyrics",
+  "settings.use_cache.description": "Store fetched lyrics in the plugin data directory for offline reuse.",
+  "settings.local_lyrics_dir.label": "Local lyrics folder",
+  "settings.local_lyrics_dir.description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB."
+}

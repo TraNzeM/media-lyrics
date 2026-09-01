@@ -1,0 +1,67 @@
+# media-lyrics — Noctalia v5 plugin: media player panel with synced lyrics.
+#
+# Adapted from Clavis shell's media player text layer:
+#   Clavis: LyricsTrackService.qml -> Clavis.Lyrics (C++: LRCLIB providers,
+#   LRC parse, cache) -> Media.qml / LyricsContent.qml (karaoke render).
+#   Noctalia port: this plugin polls Noctalia's own D-Bus MPRIS aggregator
+#   (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
+#   LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
+#   pure Luau, and exposes everything to the [[panel]] over noctalia.state.
+#
+# Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
+
+id = "tranzem/media-lyrics"
+name = "Media Lyrics"
+version = "0.1.0"
+plugin_api = 24
+author = "tranzem"
+license = "MIT"
+tags = ["media", "mpris", "lyrics", "music"]
+icon = "player-play"
+description = "Медиапанель с синхронизированным текстом песни (LRCLIB). Адаптация текстового слоя Clavis под Noctalia v5."
+
+[[setting]]
+key = "offset_ms"
+type = "int"
+label_key = "settings.offset_ms.label"
+description_key = "settings.offset_ms.description"
+default = 0
+
+[[setting]]
+key = "use_cache"
+type = "bool"
+label_key = "settings.use_cache.label"
+description_key = "settings.use_cache.description"
+default = true
+
+[[setting]]
+key = "local_lyrics_dir"
+type = "folder"
+label_key = "settings.local_lyrics_dir.label"
+description_key = "settings.local_lyrics_dir.description"
+default = "~/.local/share/media-lyrics"
+
+# Bar widget: compact now-playing indicator; opens the panel on click.
+[[widget]]
+id = "now-playing"
+entry = "widget.luau"
+
+# Background service: polls D-Bus for player state, fetches + parses lyrics,
+# and publishes a snapshot to noctalia.state for the panel.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Main panel: compact header (ringed cover | title+artist | transport) + lyrics view.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = 520
+placement = "floating"
+position = "center"
+
+# Control-center tile: quick panel open.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
