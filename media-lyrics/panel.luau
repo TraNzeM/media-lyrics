@@ -264,7 +264,16 @@ local function buildInfoRow(s)
   local TEXT_W = 286            -- cover 52 + gap 12 + text 286 + transport ~130 < 511 usable
   local MARQUEE_HOLD = 2        -- seconds of static display before scrolling
   local MARQUEE_SPEED = 24      -- pixels per second
-  local artistLine = s.artist ~= "" and s.artist or "Unknown artist"
+  -- MPRIS metadata can contain embedded newlines ("Golden Empire feat.\n
+  -- Zitaa - Original Mix"): a button then WRAPS its text to 2 lines inside
+  -- the fixed-height box and the overflow draws over the next line (the
+  -- "наложение букв" the user saw). Sanitize to a single line.
+  local function singleLine(text)
+    text = tostring(text or ""):gsub("[\r\n\t]+", " ")
+    text = text:gsub("  +", " ")
+    return text
+  end
+  local artistLine = singleLine(s.artist ~= "" and s.artist or "Unknown artist")
   if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
 
   -- UTF-8 aware char split + per-char width units (community/lyrics scheme)
@@ -376,7 +385,7 @@ local function buildInfoRow(s)
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    textLine("ttl", s.title ~= "" and s.title or "(no title)",
+    textLine("ttl", singleLine(s.title ~= "" and s.title or "(no title)"),
       T.fsTitle, "semibold", T.colTitle),
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
