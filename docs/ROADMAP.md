@@ -14,6 +14,7 @@ without naming them), and design decisions worth remembering.
       with automatic fallback in the declared order.
 - [ ] **Clickable lyric lines** — click a line to seek the player to that
       timestamp (D-Bus `Seek` with offset = line time − current pos).
+      DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
 - [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
       track (service already exposes `Seek`; panel-side click handling is
       missing).
