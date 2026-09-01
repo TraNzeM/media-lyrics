@@ -11,7 +11,11 @@
 --   * cache + local dir               -> pluginDataDir()/lyrics + configured dir
 -- Publishes a snapshot table to noctalia.state("media") for the panel.
 
-local POLL_MS = 500
+-- 150ms: the panel has no timer of its own (host never calls panel update(),
+-- verified by probe) — it animates the marquee from watch("media") ticks.
+-- 150ms keeps the scroll smooth (~0.2 char per tick at 24px/s) without
+-- hammering MPRIS.
+local POLL_MS = 150
 local LRCLIB_UA = "media-lyrics/0.1 (Noctalia v5 plugin)"
 
 -- ============================= utility =============================

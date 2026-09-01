@@ -295,12 +295,12 @@ local function buildInfoRow(s)
     return chars
   end
   local function charUnits(char)
-    -- The theme font renders wider than the class model predicted (a
-    -- 33-char line hit ~277px at fs13, ~0.65em/char), so per-char classes
-    -- under-counted and long lines WRAPPED. Use a uniform conservative
-    -- 0.65 units per ASCII char (8.45px at fs13), 1.0 per CJK/wide char.
+    -- uniform conservative estimate: this theme's font renders ~0.72em/char
+    -- on average (caps-heavy titles measured wider than 0.58em predicted,
+    -- which let lines slip past capacity and WRAP). 0.72 units/char keeps
+    -- slices safely inside the button width.
     local byte = char:byte(1) or 0
-    if byte < 0x80 then return 0.65 end
+    if byte < 0x80 then return 0.72 end
     return 1
   end
   local function textUnits(text)
@@ -308,29 +308,30 @@ local function buildInfoRow(s)
     for _, ch in ipairs(toChars(text)) do u = u + charUnits(ch) end
     return u
   end
-  -- viewport capacity in width units. Button inner padding (~12px/side) and
-  -- the theme's wider-than-estimated font ate the margin: the old TEXT_W/13
-  -- overestimated capacity and long lines WRAPPED instead of marqueeing
-  -- (observed live: "Whitechapel - Hymns in / Dissonance" split 3 lines).
-  -- Underestimate on purpose: a shorter slice is safe, a longer one wraps.
-  local VW_UNITS = (TEXT_W - 26) / 13
-
-  local function shouldMarquee(text)
-    return textUnits(text) > VW_UNITS
+  -- viewport capacity in width units, PER FONT SIZE: units are em-fractions
+  -- (charUnits = em fraction), so capacity = usable px / fontSize. A single
+  -- fs13-based capacity made fs19 title slices ~1.46x too wide -> the button
+  -- wrapped the slice again (observed live: "…nd In That Moment I Knew Th…"
+  -- on two lines). Button inner padding ~13px/side is also included.
+  local function vwUnits(fs)
+    return (TEXT_W - 26) / fs
+  end
+  local function shouldMarquee(text, fs)
+    return textUnits(text) > vwUnits(fs)
   end
 
   -- scroll timing per line: static hold -> slow travel -> hold -> back
   -- (marqueeState is module-scope — see top of file)
 
-  local function marqueeSlice(chars, offset)
-    -- visible window of VW_UNITS starting at fractional char offset
+  local function marqueeSlice(chars, offset, fs)
+    -- visible window of vwUnits(fs) starting at char offset
     local out, used, i = {}, 0, 1
     local skip = math.floor(offset)
     local frac = offset - skip
     local index = skip + 1
-    while index <= #chars and used < VW_UNITS do
+    while index <= #chars and used < vwUnits(fs) do
       local w = charUnits(chars[index])
-      if used + w > VW_UNITS then break end
+      if used + w > vwUnits(fs) then break end
       out[#out + 1] = chars[index]
       used = used + w
       index = index + 1
@@ -345,7 +346,7 @@ local function buildInfoRow(s)
       marqueeState[key] = state
     end
     local shown = text
-    if shouldMarquee(text) then
+    if shouldMarquee(text, fs) then
       local chars = toChars(text)
       local widths = {}
       for i, ch in ipairs(chars) do widths[i] = charUnits(ch) end
@@ -353,13 +354,15 @@ local function buildInfoRow(s)
       local units = 0
       for i = #chars, 1, -1 do
         local nu = units + widths[i]
-        if nu > VW_UNITS then break end
+        if nu > vwUnits(fs) then break end
         units = nu
         trailing = trailing + 1
       end
       local distance = math.max(0, #chars - math.max(1, trailing))
       if distance > 0 then
-        local cellsPerSec = math.max(0.5, MARQUEE_SPEED / 13)
+        -- scroll speed in units/second: 24px/s at fs13 ≈ 1.85 units/s,
+        -- scaled by fontSize so all lines scroll at the same visual speed
+        local cellsPerSec = math.max(0.5, MARQUEE_SPEED / fs)
         local travel = distance / cellsPerSec
         local cycle = MARQUEE_HOLD * 2 + travel * 2
         local phase = state.elapsed % cycle
@@ -377,12 +380,16 @@ local function buildInfoRow(s)
             end
           end
         end
-        shown = marqueeSlice(chars, math.floor(off))
+        shown = marqueeSlice(chars, math.floor(off), fs)
       end
     end
+    -- key includes the slice text: the host RETAINS a button whose key is
+    -- unchanged and re-renders its text in place, which visibly overlaps the
+    -- old glyphs with the new ones during a text swap. Keying per slice
+    -- forces a clean node recreation on every step.
     return ui.button({
-      key = key, text = shown, variant = "ghost", contentAlign = "start",
-      fontSize = fs,
+      key = key .. "-" .. shown, text = shown, variant = "ghost",
+      contentAlign = "start", fontSize = fs,
       width = TEXT_W, height = math.floor(fs * 1.35 + 0.5),
     })
   end
