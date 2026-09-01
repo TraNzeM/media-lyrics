@@ -291,13 +291,12 @@ local function buildInfoRow(s)
     return chars
   end
   local function charUnits(char)
-    if char == " " or char == "\t" then return 0.35 end
+    -- The theme font renders wider than the class model predicted (a
+    -- 33-char line hit ~277px at fs13, ~0.65em/char), so per-char classes
+    -- under-counted and long lines WRAPPED. Use a uniform conservative
+    -- 0.65 units per ASCII char (8.45px at fs13), 1.0 per CJK/wide char.
     local byte = char:byte(1) or 0
-    if byte < 0x80 then
-      if char:match("[%.,:;!'|ilI%-%(%)]") then return 0.38 end
-      if char:match("[MW@#%%&]") then return 0.85 end
-      return 0.58
-    end
+    if byte < 0x80 then return 0.65 end
     return 1
   end
   local function textUnits(text)
@@ -305,8 +304,12 @@ local function buildInfoRow(s)
     for _, ch in ipairs(toChars(text)) do u = u + charUnits(ch) end
     return u
   end
-  -- viewport capacity in width units: TEXT_W px at ~13px/cell reference
-  local VW_UNITS = TEXT_W / 13
+  -- viewport capacity in width units. Button inner padding (~12px/side) and
+  -- the theme's wider-than-estimated font ate the margin: the old TEXT_W/13
+  -- overestimated capacity and long lines WRAPPED instead of marqueeing
+  -- (observed live: "Whitechapel - Hymns in / Dissonance" split 3 lines).
+  -- Underestimate on purpose: a shorter slice is safe, a longer one wraps.
+  local VW_UNITS = (TEXT_W - 26) / 13
 
   local function shouldMarquee(text)
     return textUnits(text) > VW_UNITS
