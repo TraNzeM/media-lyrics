@@ -97,8 +97,6 @@ Upcoming work, roughly in priority order:
 - [ ] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box
 - [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
 
-See [docs/ROADMAP.md](../docs/ROADMAP.md) for the detailed knowledge base.
-
 ## Notes
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.

@@ -17,7 +17,7 @@ license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
 description = "Synced lyrics media panel: karaoke carousel, ring progress, marquee titles. Pure Luau, no external dependencies."
-dependencies = []
+dependencies = ["busctl"]
 
 [[setting]]
 key = "offset_ms"
