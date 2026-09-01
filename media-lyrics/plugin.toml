@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.6"
+version = "0.8.5"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
@@ -39,34 +39,6 @@ type = "folder"
 label_key = "settings.local_lyrics_dir.label"
 description_key = "settings.local_lyrics_dir.description"
 default = "~/.local/share/media-lyrics"
-
-# Bar widget presentation (now-playing): size knobs for the compact indicator.
-[[setting]]
-key = "widget_max_chars"
-type = "int"
-label_key = "settings.widget_max_chars.label"
-description_key = "settings.widget_max_chars.description"
-default = 26
-min = 8
-max = 80
-
-[[setting]]
-key = "widget_glyph_size"
-type = "int"
-label_key = "settings.widget_glyph_size.label"
-description_key = "settings.widget_glyph_size.description"
-default = 14
-min = 10
-max = 32
-
-[[setting]]
-key = "widget_font_size"
-type = "int"
-label_key = "settings.widget_font_size.label"
-description_key = "settings.widget_font_size.description"
-default = 12
-min = 9
-max = 24
 
 # Bar widget: compact now-playing indicator; opens the panel on click.
 [[widget]]

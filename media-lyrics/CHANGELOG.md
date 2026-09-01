@@ -4,14 +4,6 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.6] — 2026-09-01
-
-### Added
-
-- **Widget size settings** — `widget_max_chars`, `widget_glyph_size`,
-  `widget_font_size` plugin settings control the bar widget's title length,
-  icon size and font size (previously hard-coded 26 / 14 / 12).
-
 ## [0.8.5] — 2026-09-01
 
 ### Added
