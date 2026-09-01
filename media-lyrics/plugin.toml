@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.7"
+version = "0.8.8"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
@@ -87,8 +87,6 @@ id = "panel-compact"
 entry = "panel.luau"
 width = 440
 height = 440
-placement = "floating"
-position = "center"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -97,8 +95,6 @@ id = "panel-large"
 entry = "panel.luau"
 width = 640
 height = 640
-placement = "floating"
-position = "center"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 

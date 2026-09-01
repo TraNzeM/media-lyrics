@@ -4,6 +4,18 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.8] — 2026-09-01
+
+### Fixed
+
+- **Compact panel: transport block clipped** — the header (cover + title +
+  transport + time) overflowed 440px. `panelLayout()` now scales cover size,
+  text column width and transport button sizes per preset (compact 36/168/14,
+  medium 50/286/18, large 56/370/20); the disc placeholder glyph scales too.
+- **Per-preset placement/position settings removed** — only the medium
+  `panel` declares `placement`/`position`; compact and large inherit the
+  default so the settings UI shows one placement/position block, not three.
+
 ## [0.8.7] — 2026-09-01
 
 ### Added

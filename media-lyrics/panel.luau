@@ -120,6 +120,20 @@ local function visibleLines()
   return 14
 end
 
+-- Header layout per panel preset: cover size, gaps, text column width and
+-- transport button sizes. Compact is ~432 usable px, medium ~512, large
+-- ~632 (panel width minus root padding); the numbers keep the whole header
+-- (cover + text + transport + time) inside those bounds.
+local function panelLayout()
+  local sz = noctalia.getConfig("panel_size")
+  if sz == "compact" then
+    return { cover = 36, gapInline = 8, textW = 168, ctl = 14, main = 18 }
+  elseif sz == "large" then
+    return { cover = 56, gapInline = 14, textW = 370, ctl = 20, main = 24 }
+  end
+  return { cover = 50, gapInline = 12, textW = 286, ctl = 18, main = 22 }
+end
+
 local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
 
 local function buildLyricsBody(s)
@@ -249,8 +263,8 @@ end
 --     frame is the image's own border (ui.image border/borderWidth/radius);
 --   * vertical ui.progress bars do not render at all -> single horizontal
 --     native progress bar under the art (agreed auto-fallback).
-local function buildCover(s)
-  local COVER = T.cover
+local function buildCover(s, coverSize)
+  local COVER = coverSize or T.cover
   if s.artUrl and s.artUrl ~= "" then
     return ui.image({
       key = "cover", path = s.artUrl, width = COVER, height = COVER,
@@ -262,7 +276,7 @@ local function buildCover(s)
     return ui.box({ key = "coverbox", width = COVER, height = COVER,
       fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
-        ui.glyph({ name = "disc", size = 44, color = "on_surface_variant" }),
+        ui.glyph({ name = "disc", size = math.max(28, COVER - 8), color = "on_surface_variant" }),
       })
   end
 end
