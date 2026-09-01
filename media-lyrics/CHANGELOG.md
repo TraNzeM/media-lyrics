@@ -4,6 +4,23 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-09-01
+
+### Changed
+
+- Bar widget honors the instance's `Color` / `Icon Color` settings: explicit
+  color roles removed from the `barWidget.render()` tree (they silently
+  ignored the user's per-widget color configuration; the host colors the
+  built-in glyph/text row, which the empty state already used).
+- `[widget.actions] middle = "none"` declared in the manifest — the host
+  default (`settings-open-widget`) swallowed `onMiddleClick`, so middle-click
+  play/pause never fired out of the box.
+
+### Removed
+
+- Custom URL from the planned additional lyric sources (contradicts the
+  install-and-use philosophy).
+
 ## [0.8.0] — 2026-09-01
 
 ### Added
