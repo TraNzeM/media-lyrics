@@ -141,15 +141,15 @@ local function buildLyricsBody(s)
   local n = #lines
 
   if s.lyricsStatus == "loading" then
-    return { ui.label({ text = "Loading lyrics…", color = T.colMeta,
+    return { ui.label({ text = noctalia.tr("panel.loading-lyrics"), color = T.colMeta,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
   end
   if s.lyricsStatus == "error" then
-    return { ui.label({ text = "Lyrics error: " .. (s.lyricsError or ""),
+    return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
   if s.lyricsStatus ~= "ready" or n == 0 then
-    return { ui.label({ text = "No lyrics found", color = T.emptyState,
+    return { ui.label({ text = noctalia.tr("panel.no-lyrics"), color = T.emptyState,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
   end
 
@@ -298,7 +298,7 @@ local function buildInfoRow(s)
   local L = panelLayout()
   if not s.hasPlayer then
     return { ui.row({ key = "noplayer", height = L.cover + 2 * T.ring, align = "center" }, {
-      ui.label({ text = "No media player", color = T.emptyState, fontSize = T.fsMeta }),
+      ui.label({ text = noctalia.tr("panel.no-media-player"), color = T.emptyState, fontSize = T.fsMeta }),
     }) }
   end
 
@@ -471,7 +471,7 @@ local function buildInfoRow(s)
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    textLine("ttl", singleLine(s.title ~= "" and s.title or "(no title)"),
+    textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("panel.no-title")),
       T.fsTitle, "semibold", T.colTitle),
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
@@ -505,18 +505,19 @@ local function render()
   local footerTxt = ""
   if s.lyricsStatus == "ready" then
     footerTxt = (s.lyricsProvider ~= "" and s.lyricsProvider or "")
-      .. (s.synced and " - synced" or " - unsynced")
+      .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
+        or (" - " .. noctalia.tr("panel.unsynced")))
   end
 
   panel.render(ui.column({ flexGrow = 1, padding = T.pad, gap = T.gapBand }, {
     -- A. chrome header: overline left, two ghost glyph buttons right
     ui.row({ key = "chrome", align = "center", justify = "space_between" }, {
-      ui.label({ text = "NOW PLAYING", fontSize = T.fsOverline, fontWeight = "semibold",
+      ui.label({ text = noctalia.tr("panel.now-playing"), fontSize = T.fsOverline, fontWeight = "semibold",
         color = T.colOverline }),
       ui.row({ gap = T.gapMicro, align = "center" }, {
         ui.button({ glyph = "refresh", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,
-          tooltip = "Reload lyrics",
+          tooltip = noctalia.tr("panel.reload-lyrics"),
           onClick = function() noctalia.state.set("panel_req", { action = "reloadLyrics" }) end }),
         ui.button({ glyph = "close", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,

@@ -10,14 +10,14 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.9"
+version = "0.8.10"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
-description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau, no external dependencies."
-dependencies = ["busctl"]
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
+dependencies = ["busctl", "curl"]
 
 [[setting]]
 key = "offset_ms"

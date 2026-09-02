@@ -4,6 +4,24 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.10] — 2026-09-02
+
+### Fixed
+
+- **Community review compliance** (noctalia-dev/community-plugins #592):
+  - `curl` now declared in `dependencies` and the README Requirements —
+    the service spawns it for LRCLIB fetches (`-sSf -m 8 -4`, argv-only, no
+    shell). `sleep` (coreutils) documented in the README Notes.
+  - Plugin description no longer claims "no external dependencies" — it
+    states the real runtime needs (`busctl` + `curl`).
+  - Panel chrome is fully routed through `noctalia.tr()` with keys in
+    `translations/en.json` ("Loading lyrics…", "Lyrics error: ", "No lyrics
+    found", "No media player", "(no title)", "NOW PLAYING", "Reload lyrics",
+    "synced"/"unsynced") — other locales can now be provided via Noctalia
+    Translate instead of rendering hardcoded English.
+  - Thumbnail regenerated with the official thumbnail generator
+    (assets.noctalia.dev, 960×540 WebP).
+
 ## [0.8.9] — 2026-09-01
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (14 visible lines), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau, zero external dependencies**: no playerctl, no python daemons, no GTK overlays.
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (14 visible lines), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -17,9 +17,10 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 
 - Noctalia v5 (plugin API 24+)
 - `busctl` (systemd, present on every Arch install)
+- `curl` — used for the LRCLIB HTTPS fetch (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell; LRCLIB resolves IPv4 faster than the built-in HTTP client on some setups)
 - Outbound HTTPS access to `https://lrclib.net` for synced lyrics
 
-No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus.
+No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus. `sleep` (coreutils) is used for a short refresh delay after transport commands.
 
 ## Usage
 
@@ -61,7 +62,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Advantages over alternative lyric plugins
 
-- **Zero external dependencies.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain. Enable → works.
+- **Lean runtime.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain — just `busctl` and `curl`, present on virtually every Linux system. Enable → works.
 - **Player-agnostic.** Reads MPRIS directly via Noctalia's D-Bus aggregator — works with any player, not tied to a specific app.
 - **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 14 visible lines keeps whole verses in view.
 - **Overflow handled properly.** Long titles get a marquee, single-line sanitizer strips embedded newlines, integer button heights prevent glyph overlap.
@@ -107,5 +108,6 @@ Upcoming work, roughly in priority order:
 ## Notes
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
-- Lyrics are fetched from the public LRCLIB API; nothing is uploaded. Cache and local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Lyrics are fetched from the public LRCLIB API with `curl`; nothing is uploaded. Cache and local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB fetch, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.
