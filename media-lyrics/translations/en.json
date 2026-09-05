@@ -8,7 +8,7 @@
     "cache": "Cache"
   },
   "service": {
-    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+    "lyrics-unreachable": "Lyrics services unreachable (network error)"
   },
   "panel": {
     "loading-lyrics": "Loading lyrics…",

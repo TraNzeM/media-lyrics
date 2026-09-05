@@ -18,6 +18,12 @@
 local POLL_MS = 150
 local LRCLIB_UA = "media-lyrics/0.1 (Noctalia v5 plugin)"
 
+-- NetEase Cloud Music fallback source (public endpoints, no auth): the
+-- cloudsearch and song-lyric APIs need a browser User-Agent and a
+-- music.163.com Referer — plain requests return an encrypted blob instead.
+local NETEASE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+local NETEASE_REF = "https://music.163.com/"
+
 -- ============================= utility =============================
 
 local function trim(s)
@@ -258,7 +264,31 @@ local function finishError(msg)
   publish()
 end
 
--- chain: local dir -> cache -> LRCLIB exact -> LRCLIB search
+-- NetEase keeps placeholder "lyrics" for instrumentals / missing words
+-- (e.g. "[00:00.000] 纯音乐，请欣赏" = "instrumental music, enjoy", or
+-- "暂无歌词" = "no lyrics yet"). Those are NOT lyrics: treat the text as
+-- empty so the chain keeps hunting / ends with a clean "no lyrics".
+local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌词",
+  "此歌曲为没有填词的纯音乐", "此歌曲为纯音乐请欣赏", "纯音乐" }
+local function isPlaceholderLyrics(raw)
+  -- Byte-safe sanitize: multibyte chars must NOT live inside a Lua character
+  -- class together with ASCII punctuation — it corrupts UTF-8 bytes. Strip
+  -- timestamps + ASCII punctuation first, then full-width chars literally.
+  local cleaned = (raw or ""):gsub("%[%d+:%d+%.?%d*%]", "")
+  cleaned = cleaned:gsub("[%s,.!?]", "")
+  cleaned = cleaned:gsub("，", ""):gsub("。", ""):gsub("．", "")
+  cleaned = cleaned:gsub("！", ""):gsub("？", "")
+  if cleaned == "" then return false end
+  for _, p in ipairs(NETEASE_PLACEHOLDERS) do
+    if cleaned == p then return true end
+  end
+  -- variant lines appended after the phrase (e.g. "...请欣赏，谢谢");
+  -- compare CHARACTER length (utf8), not bytes
+  local clen = utf8.len(cleaned) or #cleaned
+  return clen <= 16 and cleaned:find("纯音乐", 1, true) ~= nil
+end
+
+-- chain: local dir -> cache -> LRCLIB exact -> LRCLIB search -> NetEase fallback
 local function loadLyricsForTrack(artist, title, album, durationSec, key)
   fetchGeneration = fetchGeneration + 1
   local gen = fetchGeneration
@@ -281,9 +311,10 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
     return
   end
 
-  -- 2) cache
+  -- 2) cache (skip entries that are NetEase-style placeholder text cached
+  --    before the placeholder filter existed)
   local cached = loadCachedLyrics(title == "" and "" or artist, title)
-  if cached then
+  if cached and not isPlaceholderLyrics(cached) then
     acceptLyrics(noctalia.tr("provider.cache"), cached, "", key)
     return
   end
@@ -299,15 +330,220 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
   -- fetch via external curl: the built-in noctalia.http hangs against lrclib.net
   -- on this setup (curl=28 timeout, 30s, 0 bytes) while the curl CLI resolves
   -- IPv4 happily (~50ms). Force IPv4 and a short timeout.
-  local function httpGet(url, cb)
+  local function httpGetH(url, headers, cb)
     -- -f: 4xx/5xx -> non-zero exit (treated as fetch failure, not parse error).
     -- exitCode is passed through so callers can tell "HTTP miss" (curl -f
     -- exit 22) from a transport/network failure (DNS, timeout, conn reset).
-    noctalia.runAsync({ "curl", "-sSf", "-m", "8", "-4",
-      "-H", "User-Agent: " .. LRCLIB_UA, url }, function(result)
+    local argv = { "curl", "-sSf", "-m", "8", "-4" }
+    for _, h in ipairs(headers) do
+      argv[#argv + 1] = "-H"
+      argv[#argv + 1] = h
+    end
+    argv[#argv + 1] = url
+    noctalia.runAsync(argv, function(result)
       cb({ ok = result.exitCode == 0, status = result.exitCode == 0 and 200 or 0,
         body = result.stdout or "", exit = result.exitCode })
     end)
+  end
+
+  local function httpGet(url, cb)
+    httpGetH(url, { "User-Agent: " .. LRCLIB_UA }, cb)
+  end
+
+  -- ── NetEase Cloud Music fallback (last resort, no auth) ──────────────────
+  -- NetEase LRCs open with metadata credit lines (作词/作曲/编曲/Artist: …)
+  -- that would render as lyric rows; drop them before parsing.
+  local NETEASE_META = {
+    "^%s*作词%s*[:：]", "^%s*作曲%s*[:：]", "^%s*编曲%s*[:：]",
+    "^%s*制作人%s*[:：]", "^%s*混音%s*[:：]", "^%s*母带%s*[:：]",
+    "^%s*录音%s*[:：]", "^%s*监制%s*[:：]", "^%s*和声%s*[:：]",
+    "^%s*出品%s*[:：]", "^%s*发行%s*[:：]", "^%s*企划%s*[:：]",
+    "^%s*统筹%s*[:：]", "^%s*OP%s*[:：]", "^%s*SP%s*[:：]",
+    "^%s*Artist%s*[:：]", "^%s*Album%s*[:：]", "^%s*Producer%s*[:：]",
+    "^%s*Composer%s*[:：]", "^%s*Lyricist%s*[:：]",
+  }
+  local function stripNetEaseMeta(raw)
+    local out = {}
+    for line in (raw .. "\n"):gmatch("(.-)\n") do
+      local text = trim(line)
+      if text ~= "" then
+        local body = text:gsub("^%[%d+:%d+%.?%d*%]%s*", "")
+        local isMeta = false
+        for _, p in ipairs(NETEASE_META) do
+          if body:match(p) then isMeta = true break end
+        end
+        if not isMeta then out[#out + 1] = text end
+      end
+    end
+    return table.concat(out, "\n")
+  end
+
+  local function ciEq(a, b)
+    return trim(a or ""):lower() == trim(b or ""):lower()
+  end
+  local function ciHas(hay, needle)
+    return trim(hay or ""):lower():find(trim(needle or ""):lower(), 1, true) ~= nil
+  end
+
+  -- Rank cloudsearch hits: exact/contains matches on title (3/1) and artist
+  -- (2/1), plus a duration bonus (2/1) when cloudsearch `dt` (ms) matches the
+  -- playing track's length — the timed version of a song is the one whose
+  -- timestamps line up. Returns score>0 candidates sorted desc {id, score}.
+  local function rankNetEaseSongs(songs, artist, title, durSec)
+    local ranked = {}
+    for _, s in ipairs(songs) do
+      local sname = trim(s.name or "")
+      local artists = ""
+      local arr = type(s.ar) == "table" and s.ar or type(s.artists) == "table" and s.artists or nil
+      if arr then
+        local names = {}
+        for _, a in ipairs(arr) do names[#names + 1] = a.name or "" end
+        artists = table.concat(names, ", ")
+      end
+      -- Eligibility: when we know the artist, the candidate MUST overlap on
+      -- the artist too — a title-only hit for "DNA" happily returns some
+      -- Chinese song with the same name (wrong-language lyrics, 2026-09-03).
+      -- An empty metadata artist (dirty sources) keeps title-based matching.
+      local artistKnown = trim(artist or "") ~= ""
+      local titleOk = ciEq(sname, title) or ciHas(sname, title)
+      local artistOk = (not artistKnown) or ciEq(artists, artist) or ciHas(artists, artist)
+      if titleOk and artistOk then
+        local score = 0
+      if ciEq(sname, title) then score = score + 3 end
+      if ciHas(sname, title) then score = score + 1 end
+      if ciEq(artists, artist) then score = score + 2 end
+      if ciHas(artists, artist) then score = score + 1 end
+      if type(s.dt) == "number" and durSec and durSec > 0 then
+        local d = math.abs(s.dt / 1000 - durSec)
+        if d < 2 then score = score + 2
+        elseif d < 6 then score = score + 1 end
+      end
+        if score > 0 and type(s.id) == "number" then
+          ranked[#ranked + 1] = { id = s.id, score = score }
+        end
+      end
+    end
+    table.sort(ranked, function(a, b) return a.score > b.score end)
+    return ranked
+  end
+
+  -- True when the text carries [mm:ss.xx] timestamps (karaoke-capable).
+  local function lrcIsSynced(text)
+    return text:match("%[%d+:%d+%.?%d*%]") ~= nil
+  end
+
+  -- Accept a candidate and cache it on success. Returns success.
+  local function acceptAndCache(provider, synced, plain)
+    if acceptLyrics(provider, synced, plain, key) then
+      cacheLyrics(artist, title, synced, plain)
+      return true
+    end
+    return false
+  end
+
+  local neteaseHeaders = {
+    "User-Agent: " .. NETEASE_UA,
+    "Referer: " .. NETEASE_REF,
+  }
+
+  -- Pick the closest cloudsearch hit, then fetch lyrics for up to 3
+  -- candidates. SYNCHRONIZED LRC wins: a plain (untimed) NetEase text is
+  -- kept as a fallback while better candidates are still hunted, and an
+  -- LRCLIB plain-only hit stashed by the caller is used only when NetEase
+  -- produced nothing at all.
+  local function fetchNetEaseFallback(artist, title, key, stash)
+    if gen ~= fetchGeneration then return end
+    -- stash = { provider, synced, plain } (e.g. an LRCLIB plain-only hit).
+    local function settle(isError)
+      if gen ~= fetchGeneration then return end
+      if stash then
+        acceptAndCache(stash.provider, stash.synced, stash.plain)
+      elseif isError then
+        finishError(noctalia.tr("service.lyrics-unreachable"))
+      else
+        finishEmpty()
+      end
+    end
+    local searchAttempt = 0
+    local function trySearch(query)
+      if gen ~= fetchGeneration then return end
+      local searchUrl = "https://music.163.com/api/cloudsearch/pc?s="
+        .. noctalia.string.urlEncode(query) .. "&type=1&offset=0&limit=10"
+      httpGetH(searchUrl, neteaseHeaders, function(resp)
+        if gen ~= fetchGeneration then return end
+        if not resp.ok then
+          settle(true)
+          return
+        end
+        local data = type(resp.body) == "string" and noctalia.json.decode(resp.body) or nil
+        local songs = data and data.result and type(data.result.songs) == "table"
+          and data.result.songs or nil
+        if not songs or #songs == 0 then
+          -- title-only missed: retry once with "artist title"
+          if searchAttempt == 0 and artist ~= "" then
+            searchAttempt = 1
+            trySearch(artist .. " " .. title)
+          else
+            settle(false)
+          end
+          return
+        end
+        local ranked = rankNetEaseSongs(songs, artist, title, durationSec)
+        local tried = 0
+        local firstPlain = nil
+        local anyNetworkError = false
+        local function tryLyric(i)
+          if gen ~= fetchGeneration then return end
+          if i > #ranked or tried >= 3 then
+            if firstPlain then
+              acceptAndCache("NetEase", firstPlain, "")
+            else
+              settle(anyNetworkError)
+            end
+            return
+          end
+          tried = tried + 1
+          local lyricUrl = "https://music.163.com/api/song/lyric?os=pc&id="
+            .. tostring(ranked[i].id) .. "&lv=-1&kv=-1&tv=-1"
+          httpGetH(lyricUrl, neteaseHeaders, function(resp)
+            if gen ~= fetchGeneration then return end
+            if resp.ok and type(resp.body) == "string" then
+              local d = noctalia.json.decode(resp.body)
+              local lrc = type(d) == "table" and d.lrc and type(d.lrc.lyric) == "string"
+                and trim(d.lrc.lyric) or ""
+              if lrc ~= "" then
+                lrc = stripNetEaseMeta(lrc)
+                if trim(lrc) ~= "" then
+                  if isPlaceholderLyrics(lrc) then
+                    -- instrumental placeholder (纯音乐/暂无歌词): next candidate
+                    tryLyric(i + 1)
+                    return
+                  end
+                  if lrcIsSynced(lrc) then
+                    if not acceptAndCache("NetEase", lrc, "") then
+                      tryLyric(i + 1)  -- parsed but unusable: next candidate
+                    end
+                    return
+                  end
+                  -- plain (untimed) LRC: keep as the fallback, keep hunting
+                  -- for a synced copy in the remaining candidates
+                  if not firstPlain then firstPlain = lrc end
+                end
+              end
+            else
+              anyNetworkError = true
+            end
+            tryLyric(i + 1)
+          end)
+        end
+        tryLyric(1)
+      end)
+    end
+    if title ~= "" then
+      trySearch(title)
+    else
+      settle(false)
+    end
   end
 
   httpGet(getUrl, function(resp)
@@ -321,20 +557,28 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
     end
 
     if okData then
-      if acceptLyrics("LRCLIB", okData.synced, okData.plain, key) then
-        cacheLyrics(artist, title, okData.synced, okData.plain)
+      local synced = trim(okData.synced or "")
+      local plain = trim(okData.plain or "")
+      if synced ~= "" then
+        -- synced LRCLIB hit: done
+        acceptAndCache("LRCLIB", synced, plain)
+      elseif plain ~= "" then
+        -- LRCLIB has only untimed text: hunt for a synced copy on NetEase
+        -- first; the plain text is the fallback if NetEase has nothing.
+        fetchNetEaseFallback(artist, title, key,
+          { provider = "LRCLIB", synced = "", plain = plain })
+      else
+        fetchNetEaseFallback(artist, title, key)
       end
       return
     end
 
     -- Transport failure (DNS / timeout / connection), not an HTTP miss:
     -- curl -f exits 22 for 4xx/5xx; anything else means the request never
-    -- completed, so a search against the same host would fail the same way.
-    -- Surface a real error instead of the misleading "no lyrics found".
+    -- completed. music.163.com is a different host, so try the NetEase
+    -- fallback before giving up.
     if not resp.ok and resp.exit ~= 22 then
-      if gen == fetchGeneration then
-        finishError(noctalia.tr("service.lyrics-unreachable"))
-      end
+      fetchNetEaseFallback(artist, title, key)
       return
     end
 
@@ -357,24 +601,26 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
           if best then
             local synced = trim(best.syncedLyrics or "")
             local plain = trim(best.plainLyrics or "")
-            -- accept may fail on an instrumental hit (empty lyrics): end the
-            -- pipeline with "empty", otherwise the status sticks at "loading"
-            if acceptLyrics("LRCLIB", synced, plain, key) then
-              cacheLyrics(artist, title, synced, plain)
+            if synced ~= "" then
+              if not acceptAndCache("LRCLIB", synced, plain) then
+                -- parsed but unusable (instrumental): try NetEase
+                fetchNetEaseFallback(artist, title, key, plain ~= "" and
+                  { provider = "LRCLIB", synced = "", plain = plain } or nil)
+              end
+            elseif plain ~= "" then
+              -- plain-only LRCLIB hit: prefer a synced NetEase copy
+              fetchNetEaseFallback(artist, title, key,
+                { provider = "LRCLIB", synced = "", plain = plain })
             else
-              finishEmpty()
+              fetchNetEaseFallback(artist, title, key)
             end
             return
           end
         end
       end
-      if not resp2.ok and resp2.exit ~= 22 then
-        if gen == fetchGeneration then
-          finishError(noctalia.tr("service.lyrics-unreachable"))
-        end
-        return
-      end
-      finishEmpty()
+      -- LRCLIB had no usable hit (or its own transport failed): NetEase is
+      -- the last resort.
+      fetchNetEaseFallback(artist, title, key)
     end)
   end)
 end

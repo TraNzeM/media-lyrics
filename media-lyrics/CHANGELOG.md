@@ -4,6 +4,28 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] — 2026-09-05
+
+### Added
+
+- **NetEase Cloud Music fallback source** — when LRCLIB finds nothing (or a
+  transport error occurs), the service queries NetEase's public
+  cloudsearch/lyric endpoints (no API key; browser User-Agent + Referer only)
+  and accepts the best-ranked candidate. Synced LRC wins over plain text;
+  candidates are ranked by title/artist match plus a duration bonus against
+  the playing track; NetEase LRC metadata lines (作词/作曲/Artist: …) are
+  stripped before parsing. The chain is: local `.lrc` → cache → LRCLIB exact
+  → LRCLIB search → NetEase fallback.
+- **Instrumental / placeholder guard** — NetEase's placeholder "lyrics" for
+  instrumentals and missing words (纯音乐/暂无歌词) are filtered both at fetch
+  time and at cache-read time, so a cached placeholder cannot short-circuit
+  the chain into a fake "no lyrics".
+
+### Changed
+
+- `service.lyrics-unreachable` copy: "LRCLIB unreachable" → "Lyrics services
+  unreachable" (LRCLIB is no longer the only network source).
+
 ## [0.9.0] — 2026-09-03
 
 ### Added

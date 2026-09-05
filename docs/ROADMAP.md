@@ -9,15 +9,17 @@ without naming them), and design decisions worth remembering.
 - [ ] **Album cover in a capsule shape** — render the cover inside a capsule
       (rounded-rect) instead of a plain square; animated ring progress around
       it is a stretch goal.
-- [ ] **Additional lyric sources** — NetEase, Musixmatch, Spotify, embedded
-      MPRIS metadata (`xesam:asText`). LRCLIB stays the default
-      with automatic fallback in the declared order.
+- [x] **Additional lyric sources** — **NetEase Cloud Music fallback DONE in
+      0.9.1** (no-auth public endpoints, last in the chain). Remaining:
+      Musixmatch, Spotify, embedded MPRIS metadata (`xesam:asText`).
+      LRCLIB stays the default with automatic fallback in the declared order.
 - [x] **Clickable lyric lines** — click a line to seek the player to that
       timestamp (D-Bus `Seek` with offset = line time − current pos).
       DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
 - [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
-      track (service already exposes `Seek`; panel-side click handling is
-      missing).
+      track. **BLOCKED by host**: click handlers do not report coordinates,
+      so a click position cannot be mapped to a timestamp (only lyric-line
+      clicks and the keyboard cursor can seek).
 - [ ] **Compact mode with a pinnable widget** — a mini panel (cover + current
       line only) that can be pinned to the desktop / bar.
 - [x] **Preconfigured widget actions** — declare default gestures in
