@@ -218,6 +218,11 @@ end
 
 local currentTrackKey = ""
 local fetchGeneration = 0
+-- Lyrics embedded in the player's own MPRIS metadata (xesam:asText), cached
+-- per track key: the aggregator does not forward the field, so we fetch it
+-- directly from the player bus once per track change.
+local embeddedCache = ""
+local embeddedCacheKey = ""
 
 local function publish()
   noctalia.state.set("media", snapshot)
@@ -288,8 +293,9 @@ local function isPlaceholderLyrics(raw)
   return clen <= 16 and cleaned:find("纯音乐", 1, true) ~= nil
 end
 
--- chain: local dir -> cache -> LRCLIB exact -> LRCLIB search -> NetEase fallback
-local function loadLyricsForTrack(artist, title, album, durationSec, key)
+-- chain: local dir -> embedded (xesam:asText) -> cache -> LRCLIB exact ->
+-- LRCLIB search -> NetEase fallback
+local function loadLyricsForTrack(artist, title, album, durationSec, key, embeddedText)
   fetchGeneration = fetchGeneration + 1
   local gen = fetchGeneration
   -- claim the track key up front: while the fetch is in flight, subsequent
@@ -309,6 +315,15 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
   if localRaw then
     acceptLyrics(noctalia.tr("provider.local"), localRaw, "", key)
     return
+  end
+
+  -- 1.5) lyrics embedded in the player's own metadata (xesam:asText):
+  -- exact-track and zero-network; only when the player provides them.
+  -- Placeholders are filtered like any other source.
+  if embeddedText and trim(embeddedText) ~= "" and not isPlaceholderLyrics(embeddedText) then
+    if acceptLyrics(noctalia.tr("provider.embedded"), embeddedText, "", key) then
+      return
+    end
   end
 
   -- 2) cache (skip entries that are NetEase-style placeholder text cached
@@ -639,6 +654,29 @@ end
 local GET_ACTIVE = { "busctl", "--user", "--json=short", "call", "dev.noctalia.Mpris",
   "/dev/noctalia/Mpris", "dev.noctalia.Mpris", "GetActivePlayer" }
 
+-- Some MPRIS players expose lyrics via xesam:asText in their own Metadata;
+-- the Noctalia aggregator does not forward that field, so ask the player bus
+-- directly (argv-only busctl, once per track change). The reply is a
+-- Properties.Get variant: {type="v", data=[{type="a{sv}", data={...}}]}.
+local function fetchEmbeddedLyrics(busName, cb)
+  if busName == "" then cb("") return end
+  local argv = { "busctl", "--user", "--json=short", "call", busName,
+    "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get", "ss",
+    "org.mpris.MediaPlayer2.Player", "Metadata" }
+  noctalia.runAsync(argv, function(r)
+    if r.exitCode ~= 0 then cb("") return end
+    local payload = noctalia.json.decode(r.stdout or "")
+    local outer = payload and payload.data
+    if type(outer) ~= "table" then cb("") return end
+    local inner = outer[1]
+    local fields = (type(inner) == "table" and type(inner.data) == "table") and inner.data or nil
+    if type(fields) ~= "table" then cb("") return end
+    local v = fields["xesam:asText"]
+    if type(v) ~= "table" or v.type ~= "s" then cb("") return end
+    cb(tostring(v.data or ""))
+  end)
+end
+
 local function parseBusctlVariant(v)
   if type(v) ~= "table" or v.type == nil then return nil end
   local t, d = v.type, v.data
@@ -691,6 +729,7 @@ local function refreshPlayer()
     local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
     local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
     local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
+    local busName = parseBusctlVariant(f.bus_name) or ""
     local canSeek = parseBusctlVariant(f.can_seek) == true
     local canNext = parseBusctlVariant(f.can_go_next) == true
     local canPrev = parseBusctlVariant(f.can_go_previous) == true
@@ -717,9 +756,18 @@ local function refreshPlayer()
     snapshot.posAtMs = nowMs()
 
     if trackChanged then
+      -- claim the key up front: the embedded-metadata fetch below is async,
+      -- and without the claim the next 150 ms poll would see a "new" track
+      -- and restart the whole load forever.
+      currentTrackKey = key
       invalidateLyrics()
+      snapshot.lyricsStatus = "loading"
       publish()
-      loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key)
+      fetchEmbeddedLyrics(busName, function(raw)
+        embeddedCache = raw or ""
+        embeddedCacheKey = key
+        loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "")
+      end)
     else
       publish()
     end
@@ -778,7 +826,8 @@ noctalia.state.watch("panel_req", function(value)
     -- same track key format as refreshPlayer (lengthUs integer, not float)
     local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
       .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
-    loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key)
+    loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key,
+      (embeddedCacheKey == key) and embeddedCache or "")
   end
 end)
 
@@ -791,7 +840,8 @@ function onConfigChanged()
   refreshPlayer()
   if title ~= "" then
     local key = snapshot.playerName .. "|" .. title .. "|" .. artist .. "|" .. tostring(snapshot.lengthSec * 1e6)
-    loadLyricsForTrack(artist, title, snapshot.album, snapshot.lengthSec, key)
+    loadLyricsForTrack(artist, title, snapshot.album, snapshot.lengthSec, key,
+      (embeddedCacheKey == key) and embeddedCache or "")
   end
 end
 

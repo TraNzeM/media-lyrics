@@ -10,8 +10,9 @@ without naming them), and design decisions worth remembering.
       (rounded-rect) instead of a plain square; animated ring progress around
       it is a stretch goal.
 - [x] **Additional lyric sources** — **NetEase Cloud Music fallback DONE in
-      0.9.1** (no-auth public endpoints, last in the chain). Remaining:
-      Musixmatch, Spotify, embedded MPRIS metadata (`xesam:asText`).
+      0.9.1** (no-auth public endpoints, last in the chain); **embedded MPRIS
+      `xesam:asText` DONE in 0.9.2** (zero-network, position 2: local →
+      embedded → cache → LRCLIB → NetEase). Remaining: Musixmatch, Spotify.
       LRCLIB stays the default with automatic fallback in the declared order.
 - [x] **Clickable lyric lines** — click a line to seek the player to that
       timestamp (D-Bus `Seek` with offset = line time − current pos).
@@ -44,7 +45,7 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 | --- | --- | --- |
 | Multiple sources (NetEase, Musixmatch, QQMusic, Kugou, Apple Music, Spotify…) with per-source selection UI | L | Each source is a separate HTTP client + parser; keep the normalized-line model so the panel never changes. |
 | "Choose lyrics" selector panel when LRCLIB returns several candidates | M | A panel listing candidates (title/artist/album/duration); click to apply. Reuses our panel infra. |
-| Embedded MPRIS lyrics (`xesam:asText`) as a zero-network source | S | Read the metadata field first; LRCLIB only if absent. |
+| Embedded MPRIS lyrics (`xesam:asText`) as a zero-network source | S | **DONE in 0.9.2** — direct player-Metadata query (aggregator doesn't forward the field), chain position 2. Few players ship it today. |
 | Romanization + translation layers per line | L | Only relevant for CJK/other scripts; requires source support. |
 
 ### Rendering & interaction
@@ -54,7 +55,7 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 | Per-character karaoke gradient (word/char progress fill) | M | We already track line progress; per-char needs char timestamps (LRC word tags) or even distribution. |
 | Animated line transitions (fade, cascade, wave, typewriter, blink) | M | Our carousel is static-render; a transition timer needs the host-tick problem solved (see below). |
 | Double-line mode: translation/romanization under the original | L | Source data must provide it (see sources above). |
-| Bar widget showing the current line (inline, click → panel) | S | We already have a bar widget (`now-playing`); add the lyric line + click-through. |
+| Bar widget showing the current line (inline, click → panel) | S | **DONE in 0.9.2** — optional `show_lyric_line` widget setting (`Title · current line` while synced lyrics are ready; falls back to artist). |
 | Player allowlist/blocklist (multiple players) | M | We auto-pick the active player; allow/block is a nice filter for multi-player setups. |
 | Scroll gestures on the panel (volume/seek) | M | `onScroll` wiring; service has `Seek`. |
 

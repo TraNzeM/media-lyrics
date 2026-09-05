@@ -67,6 +67,7 @@ Display options are edited in the widget's own settings popup (middle click):
 | `art_size` | 16 | Artwork size (px) |
 | `title_scroll` | none | Scroll long titles: `none`, `always`, or `on hover` |
 | `hide_when_no_media` | off | Hide the chip when no MPRIS player is active |
+| `show_lyric_line` | off | Show `Title · current line` in the chip instead of `Title - Artist` while synced lyrics are ready (long lines scroll with the marquee; falls back to the artist line otherwise) |
 
 A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 
@@ -86,6 +87,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
 - **Album cover + progress bar** — interpolated progress between polls, transport controls (prev / play-pause / next), shuffle and repeat state.
+- **Live lyric line in the chip** — optional `show_lyric_line` widget setting: while synced lyrics are ready the chip shows `Title · current line` instead of the artist (steps with playback, marquee for long lines).
 - **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Translatable UI: strings go through Noctalia's i18n (`noctalia.tr`, English ships in the plugin; other locales via Noctalia Translate).
 
 ## Advantages over alternative lyric plugins
@@ -128,8 +130,9 @@ Upcoming work, roughly in priority order:
 - [ ] Album cover inside a capsule shape (panel info row — the bar-widget
       chip already shows the artwork since 0.9.0)
 - [x] Additional lyric sources — **NetEase fallback DONE in 0.9.1** (no-auth,
-      last in the chain); remaining: Musixmatch, embedded MPRIS metadata
-      (`xesam:asText`), Spotify — most need API keys/tokens (see Notes)
+      last in the chain); **embedded MPRIS `xesam:asText` DONE in 0.9.2**
+      (zero-network, position 2 in the chain). Remaining: Musixmatch,
+      Spotify — most need API keys/tokens (see Notes)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
 - [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
       report coordinates, so a click position cannot be mapped to a timestamp

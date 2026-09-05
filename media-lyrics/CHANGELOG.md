@@ -4,6 +4,26 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] — 2026-09-06
+
+### Added
+
+- **Current lyric line in the bar chip** — new widget setting
+  `show_lyric_line` (off by default; widget settings popup, visible when the
+  chip shows text). When on and synced lyrics are ready, the chip shows
+  `Title · <current line>` instead of `Title - Artist`; the line steps with
+  the playback position (snapshot polls every 150 ms) and long lines scroll
+  with the existing marquee. Falls back to the artist line while lyrics are
+  not ready or unsynced.
+- **Embedded MPRIS lyrics (`xesam:asText`)** — a zero-network source: players
+  that embed lyrics in their own `Metadata` (the Noctalia aggregator does not
+  forward the field, so the service asks the player bus directly, once per
+  track change) feed the chain at position 2:
+  local `.lrc` → **embedded** → cache → LRCLIB exact → LRCLIB search →
+  NetEase. Footer provider label: "Embedded". Placeholders are filtered like
+  any other source. (Few players ship `xesam:asText` today; LRCLIB remains
+  the workhorse.)
+
 ## [0.9.1] — 2026-09-05
 
 ### Added

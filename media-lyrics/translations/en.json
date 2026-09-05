@@ -5,7 +5,8 @@
   },
   "provider": {
     "local": "Local",
-    "cache": "Cache"
+    "cache": "Cache",
+    "embedded": "Embedded"
   },
   "service": {
     "lyrics-unreachable": "Lyrics services unreachable (network error)"
@@ -82,6 +83,10 @@
     "local_lyrics_dir": {
       "label": "Local lyrics folder",
       "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB."
+    },
+    "show_lyric_line": {
+      "label": "Show current lyric line",
+      "description": "Show the current synced lyric line in the chip instead of the artist (title stays)."
     }
   }
 }
