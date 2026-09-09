@@ -18,6 +18,9 @@
     "no-media-player": "No media player",
     "now-playing": "NOW PLAYING",
     "reload-lyrics": "Reload lyrics",
+    "choose-lyrics": "Lyrics variants",
+    "variant-default": "Default",
+    "no-variants": "No alternative lyrics found",
     "synced": "synced",
     "unsynced": "unsynced"
   },
@@ -37,6 +40,14 @@
     "artist_first": {
       "label": "Artist first",
       "description": "Show \"Artist - Title\" instead of \"Title - Artist\"."
+    },
+    "player_allowlist": {
+      "label": "Player allowlist",
+      "description": "Comma-separated player names (identity or bus name). When set, only matching players are shown. Empty = show any player."
+    },
+    "player_blocklist": {
+      "label": "Player blocklist",
+      "description": "Comma-separated player names (identity or bus name) to hide. Empty = hide none."
     },
     "min_length": {
       "label": "Min length",
@@ -69,11 +80,12 @@
     },
     "panel_size": {
       "label": "Panel size",
-      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
+      "description": "Size preset of the lyrics panel: mini (360), compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
       "options": {
-        "compact": "Compact (440)",
-        "medium": "Medium (520)",
-        "large": "Large (640)"
+        "mini": "Mini",
+        "compact": "Compact",
+        "medium": "Medium",
+        "large": "Large"
       }
     },
     "use_cache": {

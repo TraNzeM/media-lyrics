@@ -6,9 +6,19 @@ without naming them), and design decisions worth remembering.
 
 ## To Do (priority order)
 
+- [ ] **Show playback progress in the bar widget** — a thin progress bar in
+      the bar chip. **DROPPED (status: probably won't implement)** — the bar
+      capsule is one control tall, so a bar under the text is clipped, and
+      `ui.progress` is a leaf node (no children / no z-order), so it cannot
+      sit behind the text; the only working placement is beside the text,
+      which adds visual noise. Revisit only if the host adds a background
+      progress layer or a taller capsule.
 - [ ] **Album cover in a capsule shape** — render the cover inside a capsule
       (rounded-rect) instead of a plain square; animated ring progress around
-      it is a stretch goal.
+      it is a stretch goal. **DROPPED (status: probably won't implement)** —
+      the cover is square (width = height), so a capsule (pill) needs a
+      rectangular shape; `radius = COVER/2` on a square just makes a circle,
+      not a capsule. Revisit only if the cover becomes rectangular.
 - [x] **Additional lyric sources** — **NetEase Cloud Music fallback DONE in
       0.9.1** (no-auth public endpoints, last in the chain); **embedded MPRIS
       `xesam:asText` DONE in 0.9.2** (zero-network, position 2: local →
@@ -21,8 +31,12 @@ without naming them), and design decisions worth remembering.
       track. **BLOCKED by host**: click handlers do not report coordinates,
       so a click position cannot be mapped to a timestamp (only lyric-line
       clicks and the keyboard cursor can seek).
-- [ ] **Compact mode with a pinnable widget** — a mini panel (cover + current
-      line only) that can be pinned to the desktop / bar.
+- [x] **Compact mode with a pinnable widget** — a mini panel (cover + current
+      line only) that can be pinned to the desktop / bar. **DONE** — new
+      `panel-mini` (360×120, floating/center, `keyboard_focus=none` +
+      `dismiss_on_outside_click=false` so it stays pinned): cover +
+      title/artist + current lyric line. Selectable via `panel_size` = `mini`
+      (widget + control-center tile open it).
 - [x] **Preconfigured widget actions** — declare default gestures in
       plugin.toml (`[widget.actions]`: `middle = "none"` frees the middle
       button for play/pause; scroll_up/scroll_down for track switching) so
@@ -44,7 +58,7 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 | Idea | Effort | Notes |
 | --- | --- | --- |
 | Multiple sources (NetEase, Musixmatch, QQMusic, Kugou, Apple Music, Spotify…) with per-source selection UI | L | Each source is a separate HTTP client + parser; keep the normalized-line model so the panel never changes. |
-| "Choose lyrics" selector panel when LRCLIB returns several candidates | M | A panel listing candidates (title/artist/album/duration); click to apply. Reuses our panel infra. |
+| "Choose lyrics" selector panel when LRCLIB returns several candidates | M | **DONE in 0.9.4 (variants picker)** — header button always visible while a track plays; the service fetches LRCLIB search candidates on demand (`openLyricChoices`) without touching the playing lyrics; picking applies via `acceptLyrics` and the list is kept in the snapshot so variants can be switched repeatedly; a "Default" row restores the automatic chain (`chooseLyrics` index 0). |
 | Embedded MPRIS lyrics (`xesam:asText`) as a zero-network source | S | **DONE in 0.9.2** — direct player-Metadata query (aggregator doesn't forward the field), chain position 2. Few players ship it today. |
 | Romanization + translation layers per line | L | Only relevant for CJK/other scripts; requires source support. |
 
@@ -56,8 +70,8 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 | Animated line transitions (fade, cascade, wave, typewriter, blink) | M | Our carousel is static-render; a transition timer needs the host-tick problem solved (see below). |
 | Double-line mode: translation/romanization under the original | L | Source data must provide it (see sources above). |
 | Bar widget showing the current line (inline, click → panel) | S | **DONE in 0.9.2** — optional `show_lyric_line` widget setting (`Title · current line` while synced lyrics are ready; falls back to artist). |
-| Player allowlist/blocklist (multiple players) | M | We auto-pick the active player; allow/block is a nice filter for multi-player setups. |
-| Scroll gestures on the panel (volume/seek) | M | `onScroll` wiring; service has `Seek`. |
+| Player allowlist/blocklist (multiple players) | M | **DONE** — `player_allowlist`/`player_blocklist` settings; falls back to the first allowed player from `GetPlayers` when the active one is filtered. |
+| Scroll gestures on the panel (volume/seek) | M | **BLOCKED by host** — `onScroll` is only a bar-widget global callback, not a panel ui-node prop; panel nodes (row/column/box) have no scroll handler. |
 
 ### Engineering pitfalls worth remembering
 
