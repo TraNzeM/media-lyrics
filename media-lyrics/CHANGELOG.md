@@ -4,6 +4,18 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] — 2026-10-01
+
+### Fixed
+
+- **Album art from online players (Spotify, web players) now renders** — the
+  MPRIS `art_url` may be an HTTP(S) URL rather than a local file, and
+  `ui.image` renders local files only, so the panel drew an empty cover box.
+  Remote artwork is now fetched into the plugin data directory (alternating
+  `cover-0` / `cover-1` slots to dodge a stale read, memoised per URL, with an
+  in-flight guard so a track change cancels a pending download). Local
+  `file://` artwork is unaffected. Fixes #705.
+
 ## [0.9.4] — 2026-09-09
 
 ### Fixed
