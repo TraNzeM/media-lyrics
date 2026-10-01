@@ -6,113 +6,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- **Header title now fills the whole slot width**
-  - the marquee window was measured with a flat 0.72 em/char estimate, which
-  - over-runs mixed-case titles by ~30%, and vwUnits also subtracted 26 px of
-  - button inner padding that ui.label does not have. A title therefore stopped
-  - ~90 px short of the transport block (only 132 px of a 224 px slot used).
-  - charUnits now uses the same measured per-glyph advance table as wrapLyric
-  - (charAdv) and the capacity is the full column width.
+- **Karaoke centering + 3-second countdown**
+  - the active lyric line is pinned to the exact vertical centre of the lyrics
+    area and the window follows it 1:1 (no clamping at the ends): on load the
+    first line starts centred, and at the end of the song the last line returns
+    to the centre instead of sticking to the bottom edge. The countdown before
+    the first line is drawn in the freed space above it, as in a typical
+    karaoke player. Compact / medium / large only - panel-mini is untouched.
 
+## [0.9.6] — 2026-10-02
 
-### Fixed
-
-- **Header: title uses the free width and all gaps are uniform**
-  - the title was clamped to a fixed slot (168 px in compact) while a flexGrow
-  - spring beside it swallowed ~127 px, so a truncated title sat next to empty
-  - space; the header's gaps also differed per preset (8/12/14) and compact ran a
-  - 36 px cover while medium/large ran 50/56. Now the info column is sized to the
-  - width left between the cover, the gaps and the transport block, the
-  - cover-to-text and text-to-transport gaps are both 12 px in every preset, and
-  - the cover is 50 px everywhere. A stretched button centred its caption
-  - (contentAlign had no effect in a panel), so the title/artist lines render as
-  - ui.label with textAlign = "start".
-
+A layout-fix release for the panel header, lyric wrapping and the mini panel.
 
 ### Fixed
 
-- **Lyric lines that fit flush against the edge now wrap instead of kissing it**
-  - with the width corrected, a 52-char bold line (Salivating red at the prospect
-  of my ruin, my doom) measured 430.8 px against a 432 px content width and so
-  was kept on one line, but it rendered with its last glyph flush against the
-  panel border - technically inside, visually touching. The wrap budget now
-  keeps a gutter inside the edge, so a flush-fitting line breaks where it
-  should. The gutter is a named constant (WRAP_GUTTER), matching the rule the
-  mini panel already follows.
-
-
-### Fixed
-
-- **Compact panel: long lyric lines no longer wrap early** - two independent
-  errors made the wrap test far stricter than the panel. (1) The per-preset
-  content width was ~36 px too small: the panel surface is exactly the
-  configured width (compact 440 / medium 520 / large 640, verified by rendering
-  an oversized box and measuring where the host clips it), but LYR_WIDTH held
-  404/484/604 - the earlier figure folded in root padding that the wrap budget
-  was already subtracting again. (2) The em advance table came from the
-  fallback font, not Noto Sans (the actual UI font), and was ~5-6% wide on
-  mixed text, so bold lines were overestimated on top of it. The table is now
-  taken from the font file itself (Noto Sans advance widths at weights 400/500/
-  700) and the bold/medium bumps are the measured 1.062/1.023. Effect: a 52-char
-  bold line (Salivating red at the prospect of my ruin, my doom) renders at
-  426 px inside the 432 px content width and is no longer split.
-
-
-### Fixed
-
-- **Mini panel: margins are now uniform** - the root row carried an 8 px padding
-  on top of an inset the host already applies (~13 px per side, measured on a
-  live render: padding = 0 still left 13 px of panel background). The two stack
-  1:1, so the left/top margins ran ~21-33 px while the bottom sat almost flush.
-  The root row now adds no padding of its own, so the panel keeps the base host
-  inset - the same order as the cover-to-text gap (12 px) that reads right - and
-  the text column width is pinned to the measured value.
-
-
-### Fixed
-
-- **Mini panel: long lyric lines now break a few px inside the edge instead of
-  kissing it** — giving the lyric label a maxWidth made the host wrap, but its
-  wrap test is a few px optimistic versus what it actually inks: a line accepted
-  at the full column width (268 px) rendered its last glyph flush against the
-  panel border, so the final letter could appear to sit on or cross the edge on
-  some lines. The label now carries a 12 px safety gutter, so the wrap lands
-  ~15-20 px inside the border. Bound measured on a live render, not guessed.
-
-
-### Fixed
-
-- **Mini panel: a long lyric line no longer runs past the panel edge** — the
-  lyric label had no width bound, so the host never wrapped it: a line wider
-  than the 360 px panel was drawn straight through the right edge and clipped
-  mid-word, while the two-line height reserved for it sat unused. The label now
-  carries an explicit maxWidth (panel width minus root padding, the cover and
-  its gap), so the host soft-wraps the line into the reserved second row.
-  The title and artist labels get the same bound.
-
-
-### Fixed
-
-- **Lyric wrapping now measures real text width instead of counting characters** —
-  the old wrap budget divided the panel width by a flat per-character factor, so a
-  51-character line was capped at 42 characters once it became active and broke
-  onto two lines even though it renders at ~333 px inside the 474 px content
-  width. The wrap (and the vertical window budget that depends on it) now uses
-  per-character advance widths measured live on this host (i/l 0.27 em,
-  m 0.92 em, w 0.80, a 0.56, A 0.64, space 0.28) — the spread between the
-  narrowest and widest glyph is 3.4x, which a single factor cannot express.
-  Verified against 9 measured strings: mean error 1.1 percent. Bold runs ~5
-  percent wider and is accounted for per line.
-
-
-### Fixed
-
-- **Lyric row hover no longer leaves a stuck highlight** — hovering a line used
-  to paint a background tint on the row, and that tint stayed behind (on the
-  hovered lines and on the active/cursor rows) after the pointer moved away, so
-  the panel accumulated grey bars. The hover cue is now a text colour/opacity
+- **Header: title now fills the whole slot width** - the marquee window was
+  measured with a flat 0.72 em/char estimate, which over-runs mixed-case titles
+  by ~30%, and the capacity also subtracted 26 px of button inner padding that
+  `ui.label` does not have. A title therefore stopped ~90 px short of the
+  transport block (only 132 px of a 224 px slot used). The window now uses the
+  same measured per-glyph advance table as the lyric wrapper.
+- **Header: uniform gaps and one cover size** - the info column was a fixed
+  slot with a `flexGrow` spring beside it, so a truncated title sat next to
+  ~127 px of dead space; gaps differed per preset (8/12/14) and compact ran a
+  36 px cover while medium/large ran 50/56. The gaps are now a uniform 12 px and
+  the cover is 50 px in every preset. The title/artist lines render as
+  `ui.label` with `textAlign = "start"` (a stretched button centred its caption;
+  `contentAlign` had no effect in a panel).
+- **Lyric wrapping uses the real preset width and font metrics** - the compact
+  panel wrapped long lines early: `LYR_WIDTH` was ~36 px under the measured
+  surface width and the glyph table came from the fallback font, not Noto Sans
+  (the actual UI font), overestimating mixed text by 5-6%. Widths are now
+  440 / 520 / 640 and the advances are read from the font file, with the
+  measured bold/medium bumps (1.062 / 1.023).
+- **Wrap safety gutter** - a line whose advance width landed exactly on the
+  content width rendered its last glyph flush against the panel border. The wrap
+  budget now keeps a 24 px gutter (`WRAP_GUTTER`), so a flush-fitting line
+  breaks where it should.
+- **Mini panel** - a long lyric line ran past the panel edge (the label had no
+  width bound); it now carries an explicit `maxWidth` so the host soft-wraps
+  into the reserved second row, plus a 12 px gutter so the last glyph is not
+  flush, and uniform margins (the root row added 8 px on top of the ~13 px host
+  inset, so the text column now adds no padding of its own).
+- **Hover highlight no longer lingers** - the background tint stayed behind
+  after the pointer left a row. The hover cue is now a text colour/opacity
   shift only, which clears reliably and matches the active-line treatment.
 
 ## [0.9.5] — 2026-10-01
