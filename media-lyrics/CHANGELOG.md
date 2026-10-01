@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Lyric lines that fit flush against the edge now wrap instead of kissing it**
+  - with the width corrected, a 52-char bold line (Salivating red at the prospect
+  of my ruin, my doom) measured 430.8 px against a 432 px content width and so
+  was kept on one line, but it rendered with its last glyph flush against the
+  panel border - technically inside, visually touching. The wrap budget now
+  keeps a gutter inside the edge, so a flush-fitting line breaks where it
+  should. The gutter is a named constant (WRAP_GUTTER), matching the rule the
+  mini panel already follows.
+
+
+### Fixed
+
 - **Compact panel: long lyric lines no longer wrap early** - two independent
   errors made the wrap test far stricter than the panel. (1) The per-preset
   content width was ~36 px too small: the panel surface is exactly the
