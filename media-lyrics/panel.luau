@@ -619,13 +619,11 @@ local function buildInfoRow(s)
     return chars
   end
   local function charUnits(char)
-    -- uniform conservative estimate: this theme's font renders ~0.72em/char
-    -- on average (caps-heavy titles measured wider than 0.58em predicted,
-    -- which let lines slip past capacity and WRAP). 0.72 units/char keeps
-    -- slices safely inside the button width.
-    local byte = char:byte(1) or 0
-    if byte < 0x80 then return 0.72 end
-    return 1
+    -- Exact per-glyph advance in em - the same measured table wrapLyric uses
+    -- (charAdv). The previous flat 0.72 em/char over-estimated mixed-case
+    -- titles by ~30%, so the marquee window came out far narrower than the
+    -- slot and the title ended in open space (owner: "окно для текста обрезано").
+    return charAdv(char)
   end
   local function textUnits(text)
     local u = 0
@@ -633,12 +631,11 @@ local function buildInfoRow(s)
     return u
   end
   -- viewport capacity in width units, PER FONT SIZE: units are em-fractions
-  -- (charUnits = em fraction), so capacity = usable px / fontSize. A single
-  -- fs13-based capacity made fs19 title slices ~1.46x too wide -> the button
-  -- wrapped the slice again (observed live: "…nd In That Moment I Knew Th…"
-  -- on two lines). Button inner padding ~13px/side is also included.
+  -- (charUnits = em fraction), so capacity = usable px / fontSize. The lines now
+  -- render as ui.label (no button chrome), so the full column width is usable -
+  -- the old -26 px reserved button inner padding and left a gap on the right.
   local function vwUnits(fs)
-    return (TEXT_W - 26) / fs
+    return TEXT_W / fs
   end
   local function shouldMarquee(text, fs)
     return textUnits(text) > vwUnits(fs)

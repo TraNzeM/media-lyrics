@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Header title now fills the whole slot width**
+  - the marquee window was measured with a flat 0.72 em/char estimate, which
+  - over-runs mixed-case titles by ~30%, and vwUnits also subtracted 26 px of
+  - button inner padding that ui.label does not have. A title therefore stopped
+  - ~90 px short of the transport block (only 132 px of a 224 px slot used).
+  - charUnits now uses the same measured per-glyph advance table as wrapLyric
+  - (charAdv) and the capacity is the full column width.
+
+
+### Fixed
+
 - **Header: title uses the free width and all gaps are uniform**
   - the title was clamped to a fixed slot (168 px in compact) while a flexGrow
   - spring beside it swallowed ~127 px, so a truncated title sat next to empty
