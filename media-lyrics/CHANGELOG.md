@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Lyric wrapping now measures real text width instead of counting characters** —
+  the old wrap budget divided the panel width by a flat per-character factor, so a
+  51-character line was capped at 42 characters once it became active and broke
+  onto two lines even though it renders at ~333 px inside the 474 px content
+  width. The wrap (and the vertical window budget that depends on it) now uses
+  per-character advance widths measured live on this host (i/l 0.27 em,
+  m 0.92 em, w 0.80, a 0.56, A 0.64, space 0.28) — the spread between the
+  narrowest and widest glyph is 3.4x, which a single factor cannot express.
+  Verified against 9 measured strings: mean error 1.1 percent. Bold runs ~5
+  percent wider and is accounted for per line.
+
+
+### Fixed
+
 - **Lyric row hover no longer leaves a stuck highlight** — hovering a line used
   to paint a background tint on the row, and that tint stayed behind (on the
   hovered lines and on the active/cursor rows) after the pointer moved away, so
