@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mini panel: margins are now uniform** - the root row carried an 8 px padding
+  on top of an inset the host already applies (~13 px per side, measured on a
+  live render: padding = 0 still left 13 px of panel background). The two stack
+  1:1, so the left/top margins ran ~21-33 px while the bottom sat almost flush.
+  The root row now adds no padding of its own, so the panel keeps the base host
+  inset - the same order as the cover-to-text gap (12 px) that reads right - and
+  the text column width is pinned to the measured value.
+
+
+### Fixed
+
 - **Mini panel: long lyric lines now break a few px inside the edge instead of
   kissing it** — giving the lyric label a maxWidth made the host wrap, but its
   wrap test is a few px optimistic versus what it actually inks: a line accepted
