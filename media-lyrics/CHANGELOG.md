@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Header: title uses the free width and all gaps are uniform**
+  - the title was clamped to a fixed slot (168 px in compact) while a flexGrow
+  - spring beside it swallowed ~127 px, so a truncated title sat next to empty
+  - space; the header's gaps also differed per preset (8/12/14) and compact ran a
+  - 36 px cover while medium/large ran 50/56. Now the info column is sized to the
+  - width left between the cover, the gaps and the transport block, the
+  - cover-to-text and text-to-transport gaps are both 12 px in every preset, and
+  - the cover is 50 px everywhere. A stretched button centred its caption
+  - (contentAlign had no effect in a panel), so the title/artist lines render as
+  - ui.label with textAlign = "start".
+
+
+### Fixed
+
 - **Lyric lines that fit flush against the edge now wrap instead of kissing it**
   - with the width corrected, a 52-char bold line (Salivating red at the prospect
   of my ruin, my doom) measured 430.8 px against a 432 px content width and so

@@ -123,18 +123,27 @@ local function visibleLines()
   return 14
 end
 
--- Header layout per panel preset: cover size, gaps, text column width and
--- transport button sizes. Compact is ~432 usable px, medium ~512, large
--- ~632 (panel width minus root padding); the numbers keep the whole header
--- (cover + text + transport + time) inside those bounds.
+-- Header layout per panel preset. Spacing is uniform everywhere: the
+-- cover-to-text gap, the text-to-transport gap and the header's own side
+-- insets all use GAP_PX (12 px - the cover-to-text gap the owner standardised
+-- on in the mini panel). The cover is ONE size in every preset: compact used to
+-- run a 36 px cover while medium/large ran 50/56, which read as a bug ("только
+-- в режиме compact обложка меньше чем во всех остальных"). The text column is
+-- computed to take ALL the width left between the cover, the two gaps and the
+-- transport block - no dead slot (a flexGrow spring used to swallow ~127 px
+-- while the title was still truncated).
+local GAP_PX = 12
+local COVER_PX = 50
 local function panelLayout()
   local sz = noctalia.getConfig("panel_size")
+  -- transport block width (prev + play + next + the time label under them),
+  -- measured live per preset; it scales with the button tiers.
   if sz == "compact" then
-    return { cover = 36, gapInline = 8, textW = 168, ctl = 14, main = 18 }
+    return { cover = COVER_PX, gapInline = GAP_PX, transport = 120, textW = 224, ctl = 14, main = 18 }
   elseif sz == "large" then
-    return { cover = 56, gapInline = 14, textW = 370, ctl = 20, main = 24 }
+    return { cover = COVER_PX, gapInline = GAP_PX, transport = 150, textW = 398, ctl = 20, main = 24 }
   end
-  return { cover = 50, gapInline = 12, textW = 286, ctl = 18, main = 22 }
+  return { cover = COVER_PX, gapInline = GAP_PX, transport = 132, textW = 296, ctl = 18, main = 22 }
 end
 
 local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
@@ -577,6 +586,9 @@ local function buildInfoRow(s)
   -- NOT ellipsized - it stays static for MARQUEE_HOLD seconds, then scrolls
   -- char-by-char (charUnits widths), holds at the end, and scrolls back.
   -- Height never jumps: button height is fixed per line.
+  -- The column takes ALL the width left between the cover gap and the
+  -- transport gap (flexGrow = 1 below) so the title uses the free area instead
+  -- of being clamped to a fixed 168 px slot while a spring idles beside it.
   local TEXT_W = L.textW
   local MARQUEE_HOLD = 2        -- seconds of static display before scrolling
   local MARQUEE_SPEED = 24      -- pixels per second
@@ -701,10 +713,14 @@ local function buildInfoRow(s)
     -- re-blur it -> visible blink on some GPUs (issue #649 on AMD Barcelo).
     -- In-place text swaps may briefly overlap glyphs at the marquee edge, but that
     -- is far less disruptive than the per-frame surface churn.
-    return ui.button({
-      key = key, text = shown, variant = "ghost",
-      contentAlign = "start", fontSize = fs,
-      width = TEXT_W, height = math.floor(fs * 1.35 + 0.5),
+    -- Render with ui.label, not ui.button: the column stretches to the free
+    -- width, and a label's textAlign = "start" reliably pins the text to the
+    -- left (a stretched button centred its caption - contentAlign had no
+    -- effect in a panel, so short titles floated in the middle of the slot).
+    return ui.label({
+      key = key, text = shown, fontSize = fs, fontWeight = weight,
+      color = colr, textAlign = "start", maxLines = 1, width = TEXT_W,
+      height = math.floor(fs * 1.35 + 0.5),
     })
   end
 
@@ -717,7 +733,12 @@ local function buildInfoRow(s)
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
   local infoCol = ui.column({
-    key = "infoCol", gap = 3, align = "start",
+    -- Fixed width (TEXT_W) with align = "start": the column's children stretch
+    -- to that width and are pinned left, so the title starts right after the
+    -- cover. A flexGrow column instead centred its children (flexGrow + start
+    -- on the cross axis conflict) and a start-only column collapsed the label
+    -- to its text, which then centred inside the free space.
+    key = "infoCol", gap = 3, align = "start", width = TEXT_W,
     -- hover pauses the marquees under the pointer; onHover true is always
     -- matched by a false, so a hover-away resumes scrolling cleanly.
     onHover = function(state, key)
@@ -732,7 +753,10 @@ local function buildInfoRow(s)
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
 
-  -- single band, everything centered on the art's vertical axis
+  -- single band, everything centered on the art's vertical axis.
+  -- Both inline gaps use the same GAP_PX as the cover-to-text gap, and there is
+  -- no flexGrow spring: the info column stretches, so the header reads with one
+  -- rhythm and the free width lands in the text (not in an empty slot).
   return {
     ui.row({ key = "infoRow", align = "center", justify = "start", height = 62 }, {
       ui.column({ key = "coverWrap", gap = 1, align = "center",
@@ -741,7 +765,7 @@ local function buildInfoRow(s)
         }),
       ui.spacer({ key = "coverGap", width = L.gapInline }),
       infoCol,
-      ui.spacer({ key = "spring1", flexGrow = 1 }),
+      ui.spacer({ key = "transportGap", width = L.gapInline }),
       transportCol,
     }),
   }
