@@ -4,6 +4,16 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Lyric row hover no longer leaves a stuck highlight** — hovering a line used
+  to paint a background tint on the row, and that tint stayed behind (on the
+  hovered lines and on the active/cursor rows) after the pointer moved away, so
+  the panel accumulated grey bars. The hover cue is now a text colour/opacity
+  shift only, which clears reliably and matches the active-line treatment.
+
 ## [0.9.5] — 2026-10-01
 
 ### Fixed

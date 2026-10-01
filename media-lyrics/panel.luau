@@ -400,9 +400,10 @@ local function buildLyricsBody(s)
       -- ignores color/fontWeight (would break the karaoke gradient), so wrap
       -- the label in a ui.row that owns the click target. Seek only when the
       -- line has a timestamp. The cursor row gets a leading chevron marker.
-      -- Hovering a row highlights it (fills a faint primary tint) and, for a
-      -- synced line, acts as a lightweight "preview": the fill gives a clear
-      -- hit target and signals it seeks on click.
+      -- Hovering a row highlights it by shifting the text colour/opacity only
+      -- (no background fill: the tint lingered after the pointer left the row
+      -- on this host, while colour alone reads as a clean hover and matches the
+      -- active-line treatment).
       local children = {}
       if isCursor then
         children[#children + 1] = ui.glyph({
@@ -436,7 +437,6 @@ local function buildLyricsBody(s)
         local want = (state == "true") and idx or 0
         if want ~= hoveredLine then hoveredLine = want end
       end
-      if isHover then rowProps.fill = "primary/0.10" end
       rows[k] = ui.row(rowProps, children)
     else
       rows[k] = ui.spacer({ key = "gap" .. k, height = 24 })
