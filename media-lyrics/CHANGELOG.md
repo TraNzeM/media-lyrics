@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mini panel: a long lyric line no longer runs past the panel edge** — the
+  lyric label had no width bound, so the host never wrapped it: a line wider
+  than the 360 px panel was drawn straight through the right edge and clipped
+  mid-word, while the two-line height reserved for it sat unused. The label now
+  carries an explicit maxWidth (panel width minus root padding, the cover and
+  its gap), so the host soft-wraps the line into the reserved second row.
+  The title and artist labels get the same bound.
+
+
+### Fixed
+
 - **Lyric wrapping now measures real text width instead of counting characters** —
   the old wrap budget divided the panel width by a flat per-character factor, so a
   51-character line was capped at 42 characters once it became active and broke
