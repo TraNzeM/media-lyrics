@@ -145,9 +145,9 @@ local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
 -- (verified live), so long lines are soft-wrapped into sub-lines. Glyph
 -- budget: advance factor 0.62 em measured live on this host at scale 1.5
 -- (mixed-case text, incl. spaces); bold/medium run wider and get a bump.
--- Width per preset measured live: panel width minus ~36 px of host insets
--- + root padding (compact 404 / medium 484 / large 604).
-local LYR_WIDTH = { compact = 404, medium = 484, large = 604 }
+-- Width per preset measured live: the panel surface itself (compact 440 /
+-- medium 520 / large 640); wrapLyric subtracts the root padding (T.pad * 2).
+local LYR_WIDTH = { compact = 440, medium = 520, large = 640 }
 -- Per-character advance widths in em, MEASURED live on this host (12-char runs
 -- beside a 100 px reference bar, scale 1: i/l 0.27, m 0.92, w 0.79, a 0.56,
 -- A 0.64, space 0.28). A flat per-character factor cannot work here: the
@@ -198,9 +198,9 @@ local ADV_SPACE = 0.28
 local function wrapLyric(text, fontSize, fontWeight, reserved)
   if text == nil or text == "" then return text end
   local sz = noctalia.getConfig("panel_size") or "medium"
-  local maxW = (LYR_WIDTH[sz] or LYR_WIDTH.medium) - 10 - (reserved or 0)
+  local maxW = (LYR_WIDTH[sz] or LYR_WIDTH.medium) - T.pad * 2 - (reserved or 0)
   if maxW < 10 then maxW = 10 end
-  local wf = (fontWeight == "bold" and 1.05) or (fontWeight == "medium" and 1.02) or 1.0
+  local wf = (fontWeight == "bold" and 1.062) or (fontWeight == "medium" and 1.023) or 1.0
   local capEm = maxW / (fontSize * wf)          -- line capacity in em units
   local total = unitEm(text)
   if total <= capEm then return text end

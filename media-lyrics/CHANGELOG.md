@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Compact panel: long lyric lines no longer wrap early** - two independent
+  errors made the wrap test far stricter than the panel. (1) The per-preset
+  content width was ~36 px too small: the panel surface is exactly the
+  configured width (compact 440 / medium 520 / large 640, verified by rendering
+  an oversized box and measuring where the host clips it), but LYR_WIDTH held
+  404/484/604 - the earlier figure folded in root padding that the wrap budget
+  was already subtracting again. (2) The em advance table came from the
+  fallback font, not Noto Sans (the actual UI font), and was ~5-6% wide on
+  mixed text, so bold lines were overestimated on top of it. The table is now
+  taken from the font file itself (Noto Sans advance widths at weights 400/500/
+  700) and the bold/medium bumps are the measured 1.062/1.023. Effect: a 52-char
+  bold line (Salivating red at the prospect of my ruin, my doom) renders at
+  426 px inside the 432 px content width and is no longer split.
+
+
+### Fixed
+
 - **Mini panel: margins are now uniform** - the root row carried an 8 px padding
   on top of an inset the host already applies (~13 px per side, measured on a
   live render: padding = 0 still left 13 px of panel background). The two stack
