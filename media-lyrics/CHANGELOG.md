@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mini panel: long lyric lines now break a few px inside the edge instead of
+  kissing it** — giving the lyric label a maxWidth made the host wrap, but its
+  wrap test is a few px optimistic versus what it actually inks: a line accepted
+  at the full column width (268 px) rendered its last glyph flush against the
+  panel border, so the final letter could appear to sit on or cross the edge on
+  some lines. The label now carries a 12 px safety gutter, so the wrap lands
+  ~15-20 px inside the border. Bound measured on a live render, not guessed.
+
+
+### Fixed
+
 - **Mini panel: a long lyric line no longer runs past the panel edge** — the
   lyric label had no width bound, so the host never wrapped it: a line wider
   than the 360 px panel was drawn straight through the right edge and clipped

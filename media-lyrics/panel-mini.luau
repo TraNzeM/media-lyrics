@@ -68,12 +68,20 @@ local function buildCover(s)
 end
 
 -- Text column width in the 360 px mini panel: width minus root padding
--- (8*2), the cover and its gap (64+12). The lyric label MUST carry this as
--- maxWidth: without an explicit bound the host does not wrap the label — it
--- lets it run past the panel edge and clip mid-word (bug: a long lyric line
--- was cut at the right edge while the two-line height budget sat unused).
--- With the bound the host soft-wraps into the reserved second line.
+-- (8*2), the cover and its gap (64+12) = 268 px.
+--
+-- The lyric label MUST carry maxWidth: without an explicit bound the host does
+-- not wrap the label at all - it draws the line straight through the panel edge
+-- and clips mid-word (bug: a long lyric line was cut at the right edge while
+-- the two-line height budget sat unused).
+--
+-- The host's wrap test is a few px optimistic vs what it actually inks: measured
+-- on this host, a line accepted at maxWidth=268 rendered its last glyph ~5 px
+-- past the bound (and flush against the panel border). So the label gets a
+-- small safety gutter - the wrap now lands a couple of px inside the edge
+-- instead of kissing it. Measured live, not guessed.
 local INFO_W = 360 - 2 * T.pad - T.cover - T.gap
+local TEXT_W = INFO_W - 12
 
 -- Line height heuristic shared with the main panel: floor(fs * 1.35 + 0.5).
 local function lineH(fs)
@@ -106,13 +114,13 @@ local function render()
   end
 
   local info = ui.column({ key = "info", gap = 2, flexGrow = 1 }, {
-    ui.label({ text = title, fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle, maxLines = 1, maxWidth = INFO_W }),
-    ui.label({ text = artist, fontSize = T.fsMeta, color = T.colMeta, maxLines = 1, maxWidth = INFO_W }),
+    ui.label({ text = title, fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle, maxLines = 1, maxWidth = TEXT_W }),
+    ui.label({ text = artist, fontSize = T.fsMeta, color = T.colMeta, maxLines = 1, maxWidth = TEXT_W }),
     -- Fixed-height wrapper row: the label inside may render 1 or 2 sub-lines,
     -- but the row always occupies the same vertical budget.
     ui.row({ key = "lyricRow", height = LYRIC_ROW_H, align = "start" }, {
       ui.label({ text = line, fontSize = T.fsLyric, color = T.colLyric, maxLines = 2,
-        maxWidth = INFO_W, visible = line ~= "" }),
+        maxWidth = TEXT_W, visible = line ~= "" }),
     }),
   })
 
