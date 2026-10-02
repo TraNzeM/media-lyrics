@@ -19,32 +19,43 @@ without naming them), and design decisions worth remembering.
       the cover is square (width = height), so a capsule (pill) needs a
       rectangular shape; `radius = COVER/2` on a square just makes a circle,
       not a capsule. Revisit only if the cover becomes rectangular.
-- [x] **Additional lyric sources** — **NetEase Cloud Music fallback DONE in
-      0.9.1** (no-auth public endpoints, last in the chain); **embedded MPRIS
-      `xesam:asText` DONE in 0.9.2** (zero-network, position 2: local →
-      embedded → cache → LRCLIB → NetEase). Remaining: Musixmatch, Spotify.
-      LRCLIB stays the default with automatic fallback in the declared order.
-- [x] **Clickable lyric lines** — click a line to seek the player to that
-      timestamp (D-Bus `Seek` with offset = line time − current pos).
-      DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
+- [ ] **Musixmatch / Spotify lyric sources** — the remaining network sources;
+      both need API keys or OAuth tokens, so they can only ship as an opt-in
+      "bring your own key" setting. (Every no-auth source we know of is done —
+      see the checked entries below.)
 - [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
       track. **BLOCKED by host**: click handlers do not report coordinates,
       so a click position cannot be mapped to a timestamp (only lyric-line
       clicks and the keyboard cursor can seek).
-- [x] **Compact mode with a pinnable widget** — a mini panel (cover + current
-      line only) that can be pinned to the desktop / bar. **DONE** — new
-      `panel-mini` (360×120, floating/center, `keyboard_focus=none` +
+- [x] **Karaoke centering + countdown** — the active line always sits on the
+      vertical centre line (symmetric window around the cursor or the playing
+      line): the first line starts centred on load, the anchor stays on the
+      centre line through the track, and the last line returns to the centre
+      at the end. The space this frees above the first line carries a 3-2-1
+      countdown, shown only inside its 3-second window. DONE in 0.9.6
+      (compact / medium / large; panel-mini untouched).
+- [x] **Additional lyric sources** — **NetEase Cloud Music fallback DONE in
+      0.9.1** (no-auth public endpoints, last in the chain); **embedded MPRIS
+      `xesam:asText` DONE in 0.9.2** (zero-network, position 2: local →
+      embedded → cache → LRCLIB → NetEase). LRCLIB stays the default with
+      automatic fallback in the declared order.
+- [x] **Clickable lyric lines** — click a line to seek the player to that
+      timestamp (D-Bus `Seek` with offset = line time − current pos).
+      DONE in 0.8.5 for synced lines (click + Return/Space on cursor).
+- [x] **Compact mode with a pinnable surface** — a mini panel (cover + current
+      line only) pinned to the desktop / bar. **DONE** — `panel-mini`
+      (360×120, floating/center, `keyboard_focus=none` +
       `dismiss_on_outside_click=false` so it stays pinned): cover +
       title/artist + current lyric line. Selectable via `panel_size` = `mini`
       (widget + control-center tile open it).
 - [x] **Preconfigured widget actions** — declare default gestures in
-      plugin.toml (`[widget.actions]`: `middle = "none"` frees the middle
-      button for play/pause; scroll_up/scroll_down for track switching) so
-      the bar widget works out of the box without per-user gesture binding.
-      DONE in 0.8.1 (middle), scroll via onScroll in widget.luau.
+      plugin.toml (`[widget.actions]`) so the bar widget works out of the box
+      without per-user gesture binding. DONE in 0.8.1, reworked in 0.9.0 to
+      mirror the shell's built-in media widget (right click = play/pause,
+      back/forward + wheel = prev/next, middle click = widget settings).
 - [x] **Widget size setting** — panel size presets instead of a fixed panel:
       DONE in 0.8.7 — `panel_size` select (compact 440×440/10 lines, medium
-      520×520/14, large 640×640/16), three `[[panel]]` entries share one
+      520×520/14, large 640×640/16), four `[[panel]]` entries share one
       panel.luau; widget + control-center tile open the selected preset.
       (Host has no dynamic panel resize API — presets are the supported way.)
 
@@ -57,7 +68,7 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 
 | Idea | Effort | Notes |
 | --- | --- | --- |
-| Multiple sources (NetEase, Musixmatch, QQMusic, Kugou, Apple Music, Spotify…) with per-source selection UI | L | Each source is a separate HTTP client + parser; keep the normalized-line model so the panel never changes. |
+| Multiple sources (NetEase, Musixmatch, QQMusic, Kugou, Apple Music, Spotify…) with per-source selection UI | L | **PARTIAL** — NetEase (0.9.1) + embedded MPRIS (0.9.2) done; Musixmatch/Spotify still need keys. Each source is a separate HTTP client + parser; keep the normalized-line model so the panel never changes. |
 | "Choose lyrics" selector panel when LRCLIB returns several candidates | M | **DONE in 0.9.4 (variants picker)** — header button always visible while a track plays; the service fetches LRCLIB search candidates on demand (`openLyricChoices`) without touching the playing lyrics; picking applies via `acceptLyrics` and the list is kept in the snapshot so variants can be switched repeatedly; a "Default" row restores the automatic chain (`chooseLyrics` index 0). |
 | Embedded MPRIS lyrics (`xesam:asText`) as a zero-network source | S | **DONE in 0.9.2** — direct player-Metadata query (aggregator doesn't forward the field), chain position 2. Few players ship it today. |
 | Romanization + translation layers per line | L | Only relevant for CJK/other scripts; requires source support. |
@@ -70,6 +81,7 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 | Animated line transitions (fade, cascade, wave, typewriter, blink) | M | Our carousel is static-render; a transition timer needs the host-tick problem solved (see below). |
 | Double-line mode: translation/romanization under the original | L | Source data must provide it (see sources above). |
 | Bar widget showing the current line (inline, click → panel) | S | **DONE in 0.9.2** — optional `show_lyric_line` widget setting (`Title · current line` while synced lyrics are ready; falls back to artist). |
+| Active line always centred (karaoke scroll) | S | **DONE in 0.9.6** — symmetric window around the anchor (cursor while scrolling, else the playing line), balanced `flexGrow` springs; first line starts centred, last returns to the centre, countdown in the freed space. |
 | Player allowlist/blocklist (multiple players) | M | **DONE** — `player_allowlist`/`player_blocklist` settings; falls back to the first allowed player from `GetPlayers` when the active one is filtered. |
 | Scroll gestures on the panel (volume/seek) | M | **BLOCKED by host** — `onScroll` is only a bar-widget global callback, not a panel ui-node prop; panel nodes (row/column/box) have no scroll handler. |
 
@@ -83,6 +95,10 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
 - **`textAlign` is not honored for labels** in stretched boxes; the host
   centers. Use `ui.button` + `variant="ghost"` + `contentAlign="start"` +
   fixed `width` to pin text left (community pattern).
+- **`justify="center"` is ignored on a stretched `ui.column`** — centre a
+  block with two balanced `flexGrow` springs instead; and `align="center"`
+  only takes effect on a node with a *fixed* height, not on a `flexGrow`
+  slot.
 - **Button nodes are retained by key**: changing `text` on a fixed key
   re-types glyphs in place and visibly overlaps old glyphs. Key per
   rendered slice (`key .. "-" .. text`) to force clean recreation.
@@ -94,8 +110,19 @@ idea below is tagged with effort (S/M/L) and fit for our architecture.
   overlap.
 - **Integer button heights** (`math.floor(fs * 1.35 + 0.5)`) prevent
   subpixel overlap between adjacent text rows.
-- **CJK vs ASCII width**: uniform `charUnits` 0.72 fits this theme's font;
-  CJK needs ~1.0 units/char.
+- **Measure text from the font file, not by pixel-probing glyphs** — the
+  theme font is Noto Sans; read per-glyph advances from `NotoSans[wght].ttf`
+  (fontTools). Pixel measurement at small sizes is unreliable, and a flat
+  `charUnits` coefficient over-runs mixed-case text by ~30%.
+- **An `int` setting without `min`/`max` gets the host's default 0..100
+  slider** — the control cannot express negatives or large values, even
+  though `getConfig` itself accepts them. Always declare the range.
+- **Luau `return` must be the last statement in a block** — two `return`s is
+  a syntax error that renders the panel blank (and `print` goes to /dev/null;
+  debug via `noctalia.writeFile`).
+- **Plugin settings are re-read on plugin restart, not on `config-reload`** —
+  values read at parse time (e.g. the lyric timeline) only pick up a new
+  offset after `plugins disable` + `enable`.
 
 ## Architecture
 
@@ -104,15 +131,19 @@ service.luau ──busctl──▶ dev.noctalia.Mpris (active player)
      │  150 ms POLL, publishes snapshot to noctalia.state["media"]
      ▼
 panel.luau ──watch("media")──▶ header (cover | marquee title/artist | transport)
-     │                        + progress bar + 14-line karaoke carousel
+     │                        + progress bar + karaoke carousel
      ▼
 widget.luau / shortcut.luau ──▶ panel-toggle IPC
 ```
 
-- Panel: `tranzem/media-lyrics:panel` (520×520, floating, centered).
-- Service: pure Luau LRCLIB client (`/api/get` → `/api/search`), LRC parser,
-  local `.lrc` folder, on-disk cache, `offset_ms` timing shift.
-- Zero external dependencies by design (no playerctl/python/GTK).
+- Panel presets share one `panel.luau`: `panel` (520×520, 14 lines),
+  `panel-compact` (440×440, 10), `panel-large` (640×640, 16) — all floating
+  and centered; `panel-mini` (360×120) is a separate pinned surface.
+- Service: pure Luau lyric client (LRCLIB `/api/get` → `/api/search`, NetEase
+  fallback), LRC parser, local `.lrc` folder, on-disk cache, `offset_ms` timing
+  shift.
+- Zero external dependencies by design (no playerctl/python/GTK); runtime
+  needs only `busctl` (MPRIS) and `curl` (lyric fetches).
 
 ## Release notes history
 

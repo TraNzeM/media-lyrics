@@ -4,7 +4,10 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.6] — 2026-10-02
+
+A layout pass over the header, lyric wrapping and the mini panel, plus the
+karaoke centering feature and the lyrics-offset repair.
 
 ### Added
 
@@ -24,15 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lyrics offset setting was inert and sign-inverted** - declared without
   min/max the host fell back to a 0..100 slider (a tenth of a second, no
   negative values), and `parseLrc` ADDED the offset while the description
-  promises "positive shows lines earlier". Now `min = -10000` / `max = 10000`
+  promises "positive shows lines earlier". Now `min = -2000` / `max = 2000`
   and the offset is SUBTRACTED, so positive shows lines earlier and negative
   later, matching the label.
-
-## [0.9.6] — 2026-10-02
-
-A layout-fix release for the panel header, lyric wrapping and the mini panel.
-
-### Fixed
 
 - **Header: title now fills the whole slot width** - the marquee window was
   measured with a flat 0.72 em/char estimate, which over-runs mixed-case titles
