@@ -39,9 +39,24 @@ ok(parsed[4].text == "Repeated line" and parsed[4].time == 12.0,
 ok(parsed[5].text == "Repeated line" and parsed[5].time == 15.5,
    "parseLrc: repeated line at 15.5")
 
--- offset shift
-local off = lib.parseLrc(lrc, 1000)  -- +1s
-ok(math.abs(off[1].time - 1.0) < 1e-6, "parseLrc: offset shifts times +1s")
+-- offset shift: the documented contract is "positive shows lines EARLIER", so
+-- a positive user offset must move every timestamp DOWN (lines fire sooner).
+-- (The old assertion encoded the opposite - it expected +1s with offset=+1000.)
+-- Look the line up by text: parseLrc SORTS by time, so an index is not stable
+-- once a shifted timestamp changes order.
+local function timeOf(list, text)
+  for _, l in ipairs(list) do if l.text == text then return l.time end end
+  return nil
+end
+local off = lib.parseLrc(lrc, 1000)   -- +1s setting -> lines 1s earlier
+ok(math.abs(timeOf(off, "First verse") - 2.20) < 1e-6,
+   "parseLrc: positive offset shows lines earlier (3.20 -> 2.20)")
+local offNeg = lib.parseLrc(lrc, -1000)  -- negative -> lines later
+ok(math.abs(timeOf(offNeg, "First verse") - 4.20) < 1e-6,
+   "parseLrc: negative offset shows lines later (3.20 -> 4.20)")
+local offZero = lib.parseLrc(lrc, 0)
+ok(math.abs(timeOf(offZero, "First verse") - 3.20) < 1e-6,
+   "parseLrc: zero offset is a no-op")
 -- ── parseLrc: plain text (unsynced) ─────────────────────────────────────────
 local plain = "Line one\nLine two\nLine three"
 local p = lib.parseLrc(plain, 0)
