@@ -23,10 +23,15 @@ without naming them), and design decisions worth remembering.
       both need API keys or OAuth tokens, so they can only ship as an opt-in
       "bring your own key" setting. (Every no-auth source we know of is done —
       see the checked entries below.)
-- [ ] **Seek on progress-bar click** — clicking the progress bar seeks the
-      track. **BLOCKED by host**: click handlers do not report coordinates,
-      so a click position cannot be mapped to a timestamp (only lyric-line
-      clicks and the keyboard cursor can seek).
+- [x] **Seek on progress-bar click** — the bar is now a `ui.slider`, the same
+      control the shell's media tab uses: click to jump, drag to scrub. The
+      "blocked" note was right about the mechanism (click handlers report no
+      coordinates) but wrong about the conclusion — a slider does not need
+      them, it owns its own pointer handling. Supersedes the third-party
+      seek-bar contributions (#848).
+- [x] **Persistent mini panel** — shipped: `panel-mini` declares
+      `persistent = true`, so the pinned chip survives other panels opening
+      (covers #747 without a fifth 640×640 preset).
 - [x] **Karaoke centering + countdown** — the active line always sits on the
       vertical centre line (symmetric window around the cursor or the playing
       line): the first line starts centred on load, the anchor stays on the

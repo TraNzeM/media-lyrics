@@ -4,6 +4,54 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] — 2026-10-02
+
+A seekable progress bar, a pinned mini panel, and two display fixes: the seek
+no longer freezes after a rewind, and the lyric block no longer runs onto the
+bottom edge of the panel.
+
+### Added
+
+- **Seekable progress bar** — the progress line under the artwork is now a real
+  `ui.slider` (the same control the shell's own control-center media tab uses),
+  so you can click anywhere on it to jump and drag to scrub. It spans the full
+  inner width and reuses the existing `seekTo` transport, so lyric-line clicks
+  and the keyboard cursor keep working through the same path. Replaces the
+  display-only `ui.progress`: the host hands a plugin no click coordinates, and
+  `ui.progress` takes no input, so a slider is the only canonical way to make
+  the bar seekable. Thanks to @klntsky, whose seek-bar contribution pointed at
+  the same missing capability.
+- **Mini panel is now pinned** — `panel-mini` declares `persistent = true`, so
+  the always-on karaoke chip survives opening another panel (the control centre,
+  the launcher, …). Previously a normal panel was dismissed the moment any other
+  panel opened, which made the "pin to desktop" placement unusable.
+
+### Changed
+
+- **Visible lyric lines: 9 / 12 / 16** (compact / medium / large) — down from
+  10 / 14 / 16. The row budget is no longer a hardcoded count but is derived from
+  the measured lyrics area and the real row pitch (29 px), so it can never
+  overshoot the panel. Medium drops from 14 to 12 rows; the area simply does not
+  fit 14.
+
+### Fixed
+
+- **The progress bar froze after a rewind** — after seeking (by dragging the bar
+  or by clicking a lyric line) the bar could stay pinned to the target for the
+  rest of the track. The pending-target hold tested "the player has NOT arrived
+  yet?" first, so once playback ran *past* the target that condition became true
+  again and the bar kept drawing the target; the branch that was supposed to
+  release it also required the age timeout at the same instant, so it never ran.
+  The hold now clears as soon as the player reaches the target (and still times
+  out after 15 s if the seek is refused), and all three seek routes go through
+  one entry point.
+
+- **The last lyric line climbed onto the panel's bottom edge** — both the row
+  budget and the empty slot heights were computed from a stale `fs × 1.25`
+  estimate (27 px) while a rendered row measures 29 px, so a full block overshot
+  the lyrics area by ~50 px and clipped. Every row height now comes from one
+  measured pitch constant, and the countdown slot box uses it too.
+
 ## [0.9.6] — 2026-10-02
 
 A layout pass over the header, lyric wrapping and the mini panel, plus the

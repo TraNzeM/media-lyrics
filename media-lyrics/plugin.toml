@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.6"
+version = "0.9.7"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
@@ -230,9 +230,21 @@ layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
-# Compact mini panel: cover + current lyric line only, pinnable to the desktop
+# Compact mini panel: cover + current lyric line only, PINNED to the desktop
 # (placement = "floating", position = "center"). A lightweight always-on
 # karaoke line without the full transport/header chrome.
+#
+# `persistent = true` (plugin_api 11) is what makes the pinning real: a normal
+# panel is dismissed when any other panel opens (the shell keeps one open at a
+# time), so without this flag the mini chip vanished the moment the user opened
+# the control center or any other panel. A persistent panel lives outside that
+# slot and stays until an explicit toggle / panel.close() /
+# `noctalia ipc panel-close <id>`. Verified live: with the flag the chip
+# survives opening and closing another panel (log: `[persistent-panel] opened`).
+#
+# Persistent panels are always floating and cannot take exclusive keyboard
+# focus - panel-mini already declares keyboard_focus = "none" and
+# dismiss_on_outside_click = false, which is exactly what they require.
 [[panel]]
 id = "panel-mini"
 entry = "panel-mini.luau"
@@ -243,6 +255,7 @@ position = "center"
 layer = "overlay"
 keyboard_focus = "none"
 dismiss_on_outside_click = false
+persistent = true
 
 # Control-center tile: quick panel open.
 [[shortcut]]

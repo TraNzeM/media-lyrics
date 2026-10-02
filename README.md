@@ -35,7 +35,7 @@ and fetches lyrics from LRCLIB in pure Luau.
 
 ## Features
 
-- 🎤 **Karaoke carousel, always centred** — 10/14/16 visible lyric lines
+- 🎤 **Karaoke carousel, always centred** — 9/12/16 visible lyric lines
   (compact/medium/large); the **active line is pinned to the vertical centre**
   and neighbours fade by distance, so whole verses stay in view. A 3-2-1
   countdown fills the space above the first line before it starts
@@ -68,7 +68,7 @@ around a deliberately different set of trade-offs:
   automatically.
 - **A real panel, not a bar snippet.** Many lyric plugins squeeze the current
   line into a 1–3 line bar widget or a tiny card. This is a floating panel
-  with three size presets (440 / 520 / 640 px, 10 / 14 / 16 visible lines) —
+  with three size presets (440 / 520 / 640 px, 9 / 12 / 16 visible lines) —
   you read the whole verse, not a glimpse.
 - **Player controls included.** Playback buttons, shuffle/repeat state and a
   progress bar are part of the panel; display-only widgets leave you reaching

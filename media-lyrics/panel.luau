@@ -9,9 +9,13 @@
 --   D. footer: provider - mode label (11px, low-contrast)
 --
 -- Progress: verified live on this host build —
---   * no arc primitive exists, and VERTICAL ui.progress bars do not render
---     at all, so the v0.1 8-segment perimeter ring and the per-edge bars were
---     dropped for a single native horizontal ui.progress (2.5px) under the art;
+--   * no arc primitive exists, and VERTICAL progress bars do not render at
+--     all, so the v0.1 8-segment perimeter ring and the per-edge bars were
+--     dropped for a single horizontal seek control under the art. It is a
+--     ui.slider, not a ui.progress: the host never hands a plugin the pointer
+--     coordinates of a click, and ui.progress is display-only, so a slider is
+--     the only way to make the bar seekable (the same control the shell's own
+--     control-center media tab uses);
 --   * ui.box cannot hold children (host drops them with warnings);
 --   * labels centered by default: text with maxWidth inside a stretched
 --     column loses left alignment -> infoCol hugs content, springer pushes
@@ -31,9 +35,8 @@ local T = {
   gapInline = 12,         -- cover <-> text
   gapMicro = 6,           -- inside groups (transport step, meta stack)
 
-  -- cover + ring
+  -- cover
   cover = 50,             -- inner cover size (logical px)
-  ring = 2.5,             -- ring thickness
   coverRadius = 10,       -- inner cover corner radius
 
   -- typography
@@ -51,9 +54,8 @@ local T = {
   colTitle = "on_surface",
   colMeta = "on_surface_variant",
   colTime = "on_surface_variant",
-  ringTrack = "outline/0.5",
-  ringFill = "primary",
-  lyricActive = "primary",
+  ringTrack = "outline/0.5",      -- cover frame border (the progress control
+  lyricActive = "primary",        -- is a ui.slider, which colours itself)
   lyricNear = "on_surface",
   lyricFar = "on_surface_variant",
   footer = "on_surface_variant/0.7",
@@ -64,6 +66,20 @@ local T = {
 local snap = nil       -- latest snapshot from the service
 local cursorLine = 0   -- keyboard/scroll cursor over lyric lines (0 = follow playback)
 local hoveredLine = 0  -- pointer hovered lyric line (0 = none); applied on the next render
+
+-- Seek slider state (progress bar). While the user drags, the host owns the
+-- thumb and re-applies `value` only when `!slider->dragging()`. Once released,
+-- the target is held live in `seekPending` until playback actually reaches it,
+-- so the bar neither snaps back while the service's D-Bus SetPosition is in
+-- flight nor freezes when the snapshot arrives at the OLD position (a Firefox
+-- MPRIS quirk: SetPosition resumes playback and reports the old position for a
+-- moment). The same hold is applied to EVERY seek route - slider, lyric-line
+-- click, keyboard cursor - so clicking a lyric line no longer leaves the bar
+-- stuck. A seek the player never honoured expires after SEEK_HOLD_MS.
+local SEEK_HOLD_MS = 15000
+local seekPending = -1        -- seconds queued for seek, -1 = none
+local seekQueuedAt = 0        -- ms of the request (0 = nothing pending)
+
 local showCandidates = false -- "choose lyrics" selector open (toggled by the header button)
 local marqueePaused = false -- pointer over the title/artist block pauses marquees
 local lastTrackKey = "" -- track identity for cursor reset on track change
@@ -108,21 +124,28 @@ local function sendCmd(action, extra)
   noctalia.state.set("panel_cmd", cmd)
 end
 
+-- Single entry point for every seek (slider, lyric-line click, keyboard cursor):
+-- remembers the target and marks it at once. MUST be defined after sendCmd and
+-- nowMs - they are `local function`s, so a definition placed earlier would
+-- capture them as nil globals and every seek would fail with
+-- "attempt to call a nil value". The host is NOT guaranteed to re-run the
+-- slider's onChange, so the caller must not rely on that callback to set the hold.
+local function queueSeek(sec)
+  sec = tonumber(sec)
+  if not sec then return end
+  seekPending = sec
+  seekQueuedAt = nowMs()
+  sendCmd("seekTo", { sec = sec })
+end
+
 -- marquee phase state lives at module scope: buildInfoRow runs on EVERY
 -- render, and a per-render table would reset elapsed to 0 each tick.
 local marqueeState = {}   -- [key] = { text, elapsed }
 
 -- ============================= lyrics rendering =============================
 
--- Visible lyric lines depend on the panel preset (panel_size setting):
--- compact 440px fits 10, medium 520px fits 14 (historical default), large
--- 640px fits 16.
-local function visibleLines()
-  local sz = noctalia.getConfig("panel_size")
-  if sz == "compact" then return 10 end
-  if sz == "large" then return 16 end
-  return 14
-end
+-- (visibleLines lives below the width constants: it needs LYR_WIDTH, which - as
+-- a `local` - must be declared before it, or it would resolve to a nil global.)
 
 -- Header layout per panel preset. Spacing is uniform everywhere: the
 -- cover-to-text gap, the text-to-transport gap and the header's own side
@@ -166,6 +189,22 @@ local LYR_WIDTH = { compact = 440, medium = 520, large = 640 }
 -- the mini panel uses. The width is the panel surface; the gutter covers the
 -- root padding plus that margin.
 local WRAP_GUTTER = 24
+
+-- Vertical budget: how many REAL rows the lyrics area holds. The presets' panel
+-- heights are 440/520/640; the header band, the seek slider and the footer take
+-- roughly the first 120 px and the bottom ~45 px, leaving an area that a
+-- measured row pitch (~29 px: 17 px glyphs on a 21 px line box + the 6 px gap)
+-- actually fits. Verified against a live screenshot at scale 2: the medium panel
+-- area is 357 px and a rendered row is 29 px, so 14 rows overflowed the bottom
+-- edge by ~50 px and the last line was clipped - the reported "text climbs onto
+-- the panel edge". Sizes stay on the 2-3-4 step so a compact panel can never
+-- budget MORE rows than a large one.
+local LYR_AREA_PX = { compact = 278, medium = 357, large = 477 }
+local LYR_ROW_PX = 29
+local function visibleLines()
+  local sz = noctalia.getConfig("panel_size")
+  return math.floor((LYR_AREA_PX[sz] or LYR_AREA_PX.medium) / LYR_ROW_PX)
+end
 -- Per-character advance widths in em, MEASURED live on this host (12-char runs
 -- beside a 100 px reference bar, scale 1: i/l 0.27, m 0.92, w 0.79, a 0.56,
 -- A 0.64, space 0.28). A flat per-character factor cannot work here: the
@@ -307,10 +346,11 @@ end
 -- align = "center" centres the label on the cross (vertical) axis - verified
 -- live; the nested-flex variant did not.
 local function countdownSlotHeight(halfSlots)
-  -- matches the empty slot cells it replaces; no internal gap term so it can
-  -- never make the block taller than the plain spacers would (safe against
-  -- overflow at the panel edge)
-  return halfSlots * (math.floor(T.fsActiveLyric * 1.25 + 0.5) + T.gapMicro)
+  -- exactly replaces the `halfSlots` empty slot cells the digit overwrites, so
+  -- the pre-start block is the same height as the plain-spacer layout. Uses the
+  -- same measured row pitch as SLOT_H - the old fs*1.25 estimate (27 px) no
+  -- longer matches a real row (29 px) and left the box 2 px per slot short.
+  return halfSlots * LYR_ROW_PX
 end
 
 local function buildLyricsBody(s)
@@ -418,7 +458,13 @@ local function buildLyricsBody(s)
         }, rowChildren)
         rows[#rows + 1] = ui.spacer({ key = "lgap" .. i, height = T.gapMicro })
       end
-      return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }
+      -- The unsynced list is a FILLING body: it must own the whole lyrics area
+      -- and scroll inside it. It must NOT be wrapped in the balanced flexGrow
+      -- centering spacers (see render): those exist to centre the fixed-height
+      -- karaoke block, and with a third flexGrow on the scroll the free height
+      -- split three ways - the list ended up a third of the area with big gaps
+      -- above and below it. The second return value tells render not to centre.
+      return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }, true
     end
 
     -- synchronized: carousel around the playback line (karaoke fade ladder)
@@ -465,10 +511,10 @@ local function buildLyricsBody(s)
   local hl = active
   local budget = visibleLines()
   local half = math.floor((budget - 1) / 2)
-  -- edge spacers must match a REAL row's height (measured ~28 px at fs17 with
-  -- the 6 px gap), else the block is taller than 9 real lines and overflows the
-  -- panel area at the start/end where the spacer slots dominate.
-  local SLOT_H = math.floor(T.fsActiveLyric * 1.25 + 0.5) + T.gapMicro
+  -- edge spacers must match a REAL row's height, measured live (~29 px: a 17 px
+  -- active glyph on its 21 px line box plus the 6 px micro gap) - NOT fs*1.25,
+  -- which under-sized the slot at 27 px and let the block run past the area.
+  local SLOT_H = LYR_ROW_PX
   -- shrink the side slots if wrapped sub-lines would overflow the area
   while half > 0 do
     local used = 0
@@ -527,9 +573,7 @@ local function buildLyricsBody(s)
       local rowProps = {
         key = "lyr" .. idx,
         align = "center", justify = "center",
-        onClick = (lineTime >= 0) and function()
-          sendCmd("seekTo", { sec = lineTime })
-        end or nil,
+        onClick = (lineTime >= 0) and function() queueSeek(lineTime) end or nil,
       }
       -- Hover highlight without a crash: NEVER call render() inside onHover —
       -- re-creating the tree mid-event-dispatch kills the host (plugin got
@@ -605,10 +649,78 @@ local function buildProgressBar(s)
   local total = s.lengthSec or 0
   local cur = interpPos(s)
   local frac = (total > 0) and math.min(1, cur / total) or 0
-  return ui.progress({
-    key = "pbar", progress = frac,
-    fill = T.ringFill, track = T.ringTrack,
-    width = "stretch", height = T.ring, radius = T.ring / 2
+
+  -- Seekable slider, the same control the shell's own control-center media tab
+  -- uses (src/shell/control_center/tabs/media_tab.cpp: ui::slider + onValueChanged
+  -- + onDragEnd). This is the canonical route: the host does NOT hand a plugin
+  -- the pointer coordinates of a click, and ui.progress is display-only, but
+  -- ui.slider owns its own pointer handling - drag to scrub, click to jump, and
+  -- the host skips re-applying `value` while the thumb is held. Seeking reuses
+  -- the transport the lyric lines already click through (panel_cmd "seekTo").
+  local seekMax = (total > 0) and total or 0.001
+  -- While a queued seek is still landing, keep showing its target rather than
+  -- the not-yet-updated position (see seekPending/seekQueuedAt). Three cases,
+  -- and the LANDED case must clear the pending first:
+  --   landed       -> the player is on (or within tolerance of) the target, so
+  --                   drop the pending and hand the bar back to the live
+  --                   position. This must be the first test: the earlier version
+  --                   required convergence AND the age timeout at the same
+  --                   instant, so once playback ran past the target the first
+  --                   condition became true again and the bar stayed pinned to
+  --                   the target for the rest of the track (the reported freeze);
+  --   too old      -> the player never honoured it; stop forcing the target;
+  --   in flight    -> show the target, not the stale snapshot position.
+  local queued = tonumber(seekPending) or -1   -- host may deliver values as strings
+  if queued >= 0 then
+    local live = tonumber(s.posSec) or 0
+    if math.abs(live - queued) <= 0.5 then
+      seekPending = -1
+      seekQueuedAt = 0
+    elseif seekQueuedAt > 0 and (nowMs() - seekQueuedAt) > SEEK_HOLD_MS then
+      seekPending = -1
+      seekQueuedAt = 0
+    else
+      cur = queued
+      frac = math.min(1, cur / seekMax)
+    end
+  end
+
+  -- The host calls setValue() on every render, and setValue fires
+  -- onValueChanged - so a naive onChange receives the value we just painted
+  -- back on every 150 ms snapshot and seeks to it, dragging the track along in
+  -- steps. The reconciler only calls setValue when `value` actually changed, so
+  -- the echo always carries the exact number we rendered; a real interaction
+  -- (click, drag, wheel) carries a different one. Ignore anything that matches
+  -- what we last painted. (The shell's media tab guards the same feedback with
+  -- m_syncingProgress; a plugin cannot set that flag, so it compares values.)
+  local painted = frac * seekMax
+  local function onScrub(v)
+    -- onChange fires on every move while dragging and once on a plain click.
+    -- The host formats the value with std::format("{}", value), i.e. it arrives
+    -- as a STRING in Luau (despite the docs saying "a number for a slider") -
+    -- coerce it before handing it to the service, which does arithmetic on it.
+    local sec = tonumber(v)
+    if not sec then return end
+    if math.abs(sec - painted) < 0.5 then return end   -- echo of our own value
+    queueSeek(sec)                 -- hold + send in one place (the host may not
+  end                              -- re-fire onChange, so never rely on it here)
+
+  return ui.slider({
+    key = "seek",
+    -- No width prop: a `column` stretches its children across the cross axis
+    -- (FlexAlign::Stretch on the ui.* layer), which is what makes the slider span
+    -- the panel exactly like the old ui.progress did. A string width such as
+    -- "stretch" is NOT parsed (the reconciler reads `width` as a number), and a
+    -- ui.row wrapper would stretch on the wrong axis and leave the slider at the
+    -- host's 180 px sliderDefaultWidth.
+    min = 0, max = seekMax, step = 1,
+    value = painted,
+    enabled = (s.hasPlayer == true) and (total > 0),
+    controlSize = "sm",
+    onChange = onScrub,
+    -- the host calls onDragEnd with no value; the last onChange already
+    -- queued the target, so this only marks the interaction as finished.
+    onDragEnd = function() seekQueuedAt = nowMs() end,
   })
 end
 
@@ -617,7 +729,7 @@ end
 local function buildInfoRow(s)
   local L = panelLayout()
   if not s.hasPlayer then
-    return { ui.row({ key = "noplayer", height = L.cover + 2 * T.ring, align = "center" }, {
+    return { ui.row({ key = "noplayer", height = L.cover, align = "center" }, {
       ui.label({ text = noctalia.tr("panel.no-media-player"), color = T.emptyState, fontSize = T.fsMeta }),
     }) }
   end
@@ -896,10 +1008,15 @@ local function render()
     -- spacer above and below (this host ignored justify = "center" on the
     -- column, verified live) - so the anchor line sits on the centre line.
     (function()
-      local nodes = buildLyricsBody(s)
-      local kids = { ui.spacer({ key = "lyricsTopFlex", flexGrow = 1 }) }
+      local nodes, fills = buildLyricsBody(s)
+      local kids = {}
+      -- Centre the karaoke block with balanced flexGrow spacers (this host
+      -- ignored justify = "center" on the column, verified live), but leave a
+      -- FILLING body (the unsynced scroll list) to own the whole area: adding
+      -- spacers there would split the free height three ways.
+      if not fills then kids[#kids + 1] = ui.spacer({ key = "lyricsTopFlex", flexGrow = 1 }) end
       for i = 1, #nodes do kids[#kids + 1] = nodes[i] end
-      kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 })
+      if not fills then kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 }) end
       return ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, kids)
     end)(),
     -- D. footer: provider - mode
@@ -997,7 +1114,7 @@ local function seekCursor()
   end
   local lineTime = s.lyrics[cur].time
   if lineTime >= 0 then
-    sendCmd("seekTo", { sec = lineTime })
+    queueSeek(lineTime)
   end
   cursorLine = 0
   render()
