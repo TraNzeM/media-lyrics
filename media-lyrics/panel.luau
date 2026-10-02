@@ -279,22 +279,25 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
 end
 
 -- Countdown state for the karaoke lead-in: a 3-2-1 shown ONLY in the last three
--- seconds before the first line (never from the top of the track). A track whose
--- first line starts within three seconds just starts at its real digit (2 -> 1
--- -> line); the cap at 3 stops a long intro from showing a stale "3" early.
+-- seconds before the first line. The window is capped, not just the value: a
+-- long intro must show NOTHING (a bare min(3, ceil(remaining)) would clamp 38 s
+-- down to "3" and pin a stale digit to the panel for the whole intro). A track
+-- whose first line starts within three seconds simply enters the window at its
+-- real second (2 -> 1 -> line).
 local function countdownValue(s)
   local lines = s.lyrics or {}
   local first = lines[1] and lines[1].time or -1
   if not (first and first > 0) then return 0 end
   local pos = interpPos(s)
-  if pos >= first then return 0 end
+  local remaining = first - pos
+  if remaining <= 0 or remaining > 3 then return 0 end
   local active = -1
   for i = 1, #lines do
     if (lines[i].time >= 0) and (lines[i].time <= pos) then active = i end
     if (lines[i].time >= 0) and (lines[i].time > pos) then break end
   end
   if active >= 1 then return 0 end
-  return math.min(3, math.ceil(first - pos))
+  return math.ceil(remaining)
 end
 
 -- The countdown digit is placed INSIDE the empty lyric slots above the first
