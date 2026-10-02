@@ -28,8 +28,8 @@ default = 0
 # Without min/max the host falls back to its default slider range (0..100), so
 # the control could not express a shift larger than a tenth of a second and
 # negative values were unreachable. Expose the full useful range.
-min = -10000
-max = 10000
+min = -2000
+max = 2000
 
 [[setting]]
 key = "panel_size"
