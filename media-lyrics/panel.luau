@@ -44,6 +44,7 @@ local T = {
   fsActiveLyric = 17,
   fsNearLyric = 15,
   fsFarLyric = 14,
+  fsCountdown = 44,       -- karaoke 3-2-1 lead-in digit (big, above the centre line)
 
   -- colors (state colors live here too)
   colOverline = "on_surface_variant",
@@ -146,7 +147,7 @@ local function panelLayout()
   return { cover = COVER_PX, gapInline = GAP_PX, transport = 132, textW = 296, ctl = 18, main = 22 }
 end
 
-local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
+-- (the karaoke window is symmetric around the anchor line; see buildLyricsBody)
 
 -- Long lyric lines must not spill past the panel edge: a ui.label wider
 -- than the panel is clipped at the surface edge (verified live — compact
@@ -275,6 +276,47 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   end
   if cur ~= "" then out[#out + 1] = cur end
   return table.concat(out, "\n")
+end
+
+-- Countdown state for the karaoke lead-in: a 3-2-1 shown ONLY in the last three
+-- seconds before the first line (never from the top of the track). A track whose
+-- first line starts within three seconds just starts at its real digit (2 -> 1
+-- -> line); the cap at 3 stops a long intro from showing a stale "3" early.
+local function countdownValue(s)
+  local lines = s.lyrics or {}
+  local first = lines[1] and lines[1].time or -1
+  if not (first and first > 0) then return 0 end
+  local pos = interpPos(s)
+  if pos >= first then return 0 end
+  local active = -1
+  for i = 1, #lines do
+    if (lines[i].time >= 0) and (lines[i].time <= pos) then active = i end
+    if (lines[i].time >= 0) and (lines[i].time > pos) then break end
+  end
+  if active >= 1 then return 0 end
+  return math.min(3, math.ceil(first - pos))
+end
+
+local function countdownActive(s)
+  return countdownValue(s) > 0
+end
+
+-- The top free space above the centred lyric block, reused as the countdown
+-- slot while the 3-2-1 runs: the digit is centred in it, so it reads as centred
+-- between the header and the first line, and the block keeps its height (the
+-- caller appends a flexGrow spacer below when the countdown shows).
+local function buildCountdownSlot(s)
+  local n = countdownValue(s)
+  if n > 0 then
+    return ui.row({ key = "countdownSlot", flexGrow = 1, align = "center", justify = "center" }, {
+      ui.label({
+        key = "countdownLabel", text = tostring(n),
+        fontSize = T.fsCountdown, fontWeight = "bold",
+        color = T.lyricActive, opacity = 0.95, textAlign = "center",
+      }),
+    })
+  end
+  return ui.spacer({ key = "lyricsTopFlex", flexGrow = 1 })
 end
 
 local function buildLyricsBody(s)
@@ -411,39 +453,51 @@ local function buildLyricsBody(s)
   local function sublines(i)
     return 1 + select(2, wrapLyric(s.lyrics[i].text, fsArr[i], wArr[i], i == cursorLine and 16 or 0):gsub("\n", ""))
   end
+  -- Karaoke centering: the anchor line (the cursor while the user scrolls,
+  -- otherwise the playing line - and before playback starts the first line) is
+  -- pinned to the exact vertical CENTRE of the lyrics area. The window always
+  -- carries the same number of slots above and below the anchor and the parent
+  -- column centres the block, so the anchor stays on the centre line on load,
+  -- through the track, and at the end (the last line returns to the centre
+  -- instead of sticking to the bottom edge). Out-of-range slots become spacers
+  -- of the same height, which keeps the symmetry exact.
+  local anchor = cursorLine >= 1 and cursorLine or (active >= 1 and active or 1)
+  if anchor < 1 then anchor = 1 end
+  if anchor > n then anchor = n end
+  -- the "current" line is the playing one only: before the first line starts
+  -- nothing is highlighted yet (the opening line lights up exactly at its
+  -- timestamp, not earlier - owner: "первая строчка не должна подсвечиваться
+  -- сразу а только в положенный ей момент").
+  local hl = active
   local budget = visibleLines()
-  local refActive = active >= 1 and active or 1
-  local target = cursorLine >= 1 and cursorLine or refActive
-  local showCount = math.min(budget, n)
-  local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
-  local lo = 1
-  local hi = math.max(1, n - showCount + 1)
-  local base = target - centerY
-  base = math.max(lo, math.min(hi, base))
-  while showCount > 1 do
+  local half = math.floor((budget - 1) / 2)
+  -- edge spacers must match a REAL row's height (measured ~28 px at fs17 with
+  -- the 6 px gap), else the block is taller than 9 real lines and overflows the
+  -- panel area at the start/end where the spacer slots dominate.
+  local SLOT_H = math.floor(T.fsActiveLyric * 1.25 + 0.5) + T.gapMicro
+  -- shrink the side slots if wrapped sub-lines would overflow the area
+  while half > 0 do
     local used = 0
-    for k = base, math.min(n, base + showCount - 1) do
-      used = used + sublines(k)
+    for k = -half, half do
+      local idx = anchor + k
+      if idx >= 1 and idx <= n then used = used + sublines(idx) end
     end
     if used <= budget then break end
-    showCount = showCount - 1
-    -- keep the target line inside the shrunken window
-    base = math.max(1, math.min(n - showCount + 1, target - math.ceil(showCount / 2)))
-    base = math.max(1, math.min(base, target))
-    base = math.max(1, base)
-    if base + showCount - 1 < target then base = target - showCount + 1 end
-    if base < 1 then base = 1 end
+    half = half - 1
   end
   local rows = {}
-  for k = 1, showCount do
-    local idx = base + k - 1
+  -- slots are a plain sequence (rows must be a dense array: negative keys are
+  -- invisible to ipairs/#, which silently dropped the left half of the window)
+  for si = 1, (2 * half + 1) do
+    local k = si - 1 - half
+    local idx = anchor + k
     if idx >= 1 and idx <= n then
-      local isActive = (idx == active)
+      local isActive = (idx == hl)
       local isCursor = (idx == cursorLine)
       local isHover = (idx == hoveredLine)
       local dist = math.abs(idx - active)
-      local fontSize = fsArr[idx]
-      local fontWeight = wArr[idx]
+      local fontSize = (idx == active) and T.fsActiveLyric or fsArr[idx]
+      local fontWeight = (idx == hl) and "bold" or wArr[idx]
       local color = (isActive or isCursor or isHover) and T.lyricActive
         or (dist <= 2 and T.lyricNear or T.lyricFar)
       local opacity = (isActive or isCursor or isHover) and 1
@@ -490,9 +544,12 @@ local function buildLyricsBody(s)
         local want = (state == "true") and idx or 0
         if want ~= hoveredLine then hoveredLine = want end
       end
-      rows[k] = ui.row(rowProps, children)
+      rows[si] = ui.row(rowProps, children)
     else
-      rows[k] = ui.spacer({ key = "gap" .. k, height = 24 })
+      -- keep the symmetry: an empty slot is the same height as a text row, so
+      -- the anchor line stays exactly on the centre line at the track's start
+      -- and end (the block is centred by the parent column).
+      rows[si] = ui.spacer({ key = "gap" .. si, height = SLOT_H })
     end
   end
   return rows
@@ -821,8 +878,22 @@ local function render()
     infoRow[1],
     -- progress bar replacing the hairline separator
     buildProgressBar(s),
-    -- C. lyrics (flexGrow)
-    ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, buildLyricsBody(s)),
+    -- C. lyrics (flexGrow). The block is centred with a balanced flexGrow
+    -- spacer above and below (this host ignored justify = "center" on the
+    -- column, verified live) - so the anchor line sits on the centre line.
+    (function()
+      local nodes = buildLyricsBody(s)
+      local top = buildCountdownSlot(s)
+      local kids = { top }
+      if countdownActive(s) then
+        -- the digit sits centred in the top space; a flexGrow spacer below it
+        -- keeps the block centred exactly as before (no layout shift)
+        kids[#kids + 1] = ui.spacer({ key = "lyricsTopFlexRest", flexGrow = 1 })
+      end
+      for i = 1, #nodes do kids[#kids + 1] = nodes[i] end
+      kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 })
+      return ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, kids)
+    end)(),
     -- D. footer: provider - mode
     ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
       color = T.footer, visible = footerTxt ~= "" }),
