@@ -297,26 +297,17 @@ local function countdownValue(s)
   return math.min(3, math.ceil(first - pos))
 end
 
-local function countdownActive(s)
-  return countdownValue(s) > 0
-end
-
--- The top free space above the centred lyric block, reused as the countdown
--- slot while the 3-2-1 runs: the digit is centred in it, so it reads as centred
--- between the header and the first line, and the block keeps its height (the
--- caller appends a flexGrow spacer below when the countdown shows).
-local function buildCountdownSlot(s)
-  local n = countdownValue(s)
-  if n > 0 then
-    return ui.row({ key = "countdownSlot", flexGrow = 1, align = "center", justify = "center" }, {
-      ui.label({
-        key = "countdownLabel", text = tostring(n),
-        fontSize = T.fsCountdown, fontWeight = "bold",
-        color = T.lyricActive, opacity = 0.95, textAlign = "center",
-      }),
-    })
-  end
-  return ui.spacer({ key = "lyricsTopFlex", flexGrow = 1 })
+-- The countdown digit is placed INSIDE the empty lyric slots above the first
+-- line (pre-start only): those slots merge into one box whose height matches
+-- the slots it replaces, so the block never changes and the digit reads as
+-- centred between the progress bar and the first line. A row with
+-- align = "center" centres the label on the cross (vertical) axis - verified
+-- live; the nested-flex variant did not.
+local function countdownSlotHeight(halfSlots)
+  -- matches the empty slot cells it replaces; no internal gap term so it can
+  -- never make the block taller than the plain spacers would (safe against
+  -- overflow at the panel edge)
+  return halfSlots * (math.floor(T.fsActiveLyric * 1.25 + 0.5) + T.gapMicro)
 end
 
 local function buildLyricsBody(s)
@@ -486,6 +477,7 @@ local function buildLyricsBody(s)
     half = half - 1
   end
   local rows = {}
+  local countdown = countdownValue(s)
   -- slots are a plain sequence (rows must be a dense array: negative keys are
   -- invisible to ipairs/#, which silently dropped the left half of the window)
   for si = 1, (2 * half + 1) do
@@ -545,6 +537,25 @@ local function buildLyricsBody(s)
         if want ~= hoveredLine then hoveredLine = want end
       end
       rows[si] = ui.row(rowProps, children)
+    elseif countdown > 0 and k >= -half and k <= -1 then
+      -- pre-start: the empty slots above the first line merge into one box
+      -- carrying the 3-2-1 digit, centred on the vertical axis by align. Only
+      -- the topmost carries it; the rest collapse (no height, no gap) so the
+      -- block's total height stays the same as with plain spacers.
+      if k == -half then
+        rows[si] = ui.row({
+          key = "countdown", align = "center", justify = "center",
+          height = countdownSlotHeight(half),
+        }, {
+          ui.label({
+            key = "countdownLabel", text = tostring(countdown),
+            fontSize = T.fsCountdown, fontWeight = "bold",
+            color = T.lyricActive, opacity = 0.95, textAlign = "center",
+          }),
+        })
+      else
+        rows[si] = ui.spacer({ key = "gap" .. si, height = 0, visible = false })
+      end
     else
       -- keep the symmetry: an empty slot is the same height as a text row, so
       -- the anchor line stays exactly on the centre line at the track's start
@@ -883,13 +894,7 @@ local function render()
     -- column, verified live) - so the anchor line sits on the centre line.
     (function()
       local nodes = buildLyricsBody(s)
-      local top = buildCountdownSlot(s)
-      local kids = { top }
-      if countdownActive(s) then
-        -- the digit sits centred in the top space; a flexGrow spacer below it
-        -- keeps the block centred exactly as before (no layout shift)
-        kids[#kids + 1] = ui.spacer({ key = "lyricsTopFlexRest", flexGrow = 1 })
-      end
+      local kids = { ui.spacer({ key = "lyricsTopFlex", flexGrow = 1 }) }
       for i = 1, #nodes do kids[#kids + 1] = nodes[i] end
       kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 })
       return ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, kids)

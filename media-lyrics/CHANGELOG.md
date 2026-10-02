@@ -8,13 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Karaoke centering + 3-second countdown**
-  - the active lyric line is pinned to the exact vertical centre of the lyrics
-    area and the window follows it 1:1 (no clamping at the ends): on load the
-    first line starts centred, and at the end of the song the last line returns
-    to the centre instead of sticking to the bottom edge. The countdown before
-    the first line is drawn in the freed space above it, as in a typical
-    karaoke player. Compact / medium / large only - panel-mini is untouched.
+- **Karaoke centering + 3-2-1 countdown** - the active lyric line is pinned to
+  the vertical centre of the lyrics area and the window is symmetric around it
+  (the cursor while the user scrolls, otherwise the playing line): the first
+  line starts centred on load, the anchor stays on the centre line through the
+  track, and the last line returns to the centre at the end instead of sticking
+  to the bottom edge. A 3-2-1 countdown is drawn in the free space above the
+  centred first line, shown only in the last three seconds before it starts
+  (never from the top of the track); a track whose first line begins within
+  three seconds just starts at its real digit. Nothing is highlighted before
+  the first line starts. Compact / medium / large only - panel-mini untouched.
 
 ## [0.9.6] — 2026-10-02
 
