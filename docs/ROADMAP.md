@@ -59,10 +59,12 @@ without naming them), and design decisions worth remembering.
       mirror the shell's built-in media widget (right click = play/pause,
       back/forward + wheel = prev/next, middle click = widget settings).
 - [x] **Widget size setting** — panel size presets instead of a fixed panel:
-      DONE in 0.8.7 — `panel_size` select (compact 440×440/10 lines, medium
-      520×520/14, large 640×640/16), four `[[panel]]` entries share one
+      DONE in 0.8.7 — `panel_size` select (compact 440×440, medium
+      520×520, large 640×640), four `[[panel]]` entries share one
       panel.luau; widget + control-center tile open the selected preset.
       (Host has no dynamic panel resize API — presets are the supported way.)
+      Visible lines are derived per preset from the measured area (0.9.7:
+      9 / 12 / 16).
 
 ## Research: what alternative lyric plugins do (and what to borrow)
 
@@ -141,9 +143,12 @@ panel.luau ──watch("media")──▶ header (cover | marquee title/artist | 
 widget.luau / shortcut.luau ──▶ panel-toggle IPC
 ```
 
-- Panel presets share one `panel.luau`: `panel` (520×520, 14 lines),
-  `panel-compact` (440×440, 10), `panel-large` (640×640, 16) — all floating
-  and centered; `panel-mini` (360×120) is a separate pinned surface.
+- Panel presets share one `panel.luau`: `panel` (520×520, 12 lines),
+  `panel-compact` (440×440, 9), `panel-large` (640×640, 16) — all floating
+  and centered; `panel-mini` (360×120) is a separate pinned surface
+  (`persistent = true` since 0.9.7). The row budget is derived from the
+  measured lyrics area and the row pitch (29 px), not a hardcoded count —
+  see `panel-rendering-pitfalls.md`.
 - Service: pure Luau lyric client (LRCLIB `/api/get` → `/api/search`, NetEase
   fallback), LRC parser, local `.lrc` folder, on-disk cache, `offset_ms` timing
   shift.
