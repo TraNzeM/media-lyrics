@@ -170,7 +170,9 @@ local function wrapLyric(text, fontSize, maxW)
     cur[#cur + 1] = words[i]
     curEm = curEm + add
   end
-  return table.concat(cur, " ")
+  -- Not reachable while the early "fits on one line" check is in place, but it has
+  -- to pad all the same: the row height only stays put if EVERY return is two lines.
+  return table.concat(cur, " ") .. "\n"
 end
 
 -- Position now, interpolated from the last published sample (the service only
