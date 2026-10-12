@@ -46,6 +46,10 @@
       "description": "How many bands the meter draws (1–128; the panel width usually fits about 8–24).",
       "label": "Spectrum bands"
     },
+    "desktop_background": {
+      "description": "Draw a surface behind the desktop widget. Off by default: like the built-in desktop widgets, the content sits straight on the wallpaper.",
+      "label": "Background"
+    },
     "desktop_lines": {
       "description": "How many lyric lines the desktop widget shows (the current line is highlighted).",
       "label": "Lyric lines"
@@ -83,8 +87,8 @@
       "label": "Min length"
     },
     "offset_ms": {
-      "label": "Lyrics offset (ms)",
-      "description": "Shift lyric timing in milliseconds (range -2000 to 2000). Positive values show lines earlier, negative values later."
+      "description": "Shift lyric timing in milliseconds (range -2000 to 2000). Positive values show lines earlier, negative values later.",
+      "label": "Lyrics offset (ms)"
     },
     "panel_size": {
       "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",

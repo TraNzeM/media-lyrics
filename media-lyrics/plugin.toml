@@ -227,6 +227,16 @@ entry = "widget.luau"
 id = "desktop"
 entry = "desktop.luau"
 
+  # Opt-in card look. The built-in desktop widgets put their content straight on
+  # the wallpaper with no frame, so the widget matches that by default and this
+  # only adds a surface behind it when asked.
+  [[desktop_widget.setting]]
+  key = "background"
+  type = "bool"
+  label_key = "settings.desktop_background.label"
+  description_key = "settings.desktop_background.description"
+  default = false
+
   [[desktop_widget.setting]]
   key = "show_artist"
   type = "bool"

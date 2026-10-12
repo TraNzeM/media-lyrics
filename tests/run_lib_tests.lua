@@ -99,5 +99,24 @@ ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")
 ok(lib.lrcIsSynced("plain text") == false, "lrcIsSynced: false")
 ok(lib.charCount("héllo") == 5, "charCount: utf8 count")
 
+
+-- ── source guard: no percent-r / percent-n / percent-t inside a char class ──
+-- In this runtime those are NOT character classes: they degrade to the literal
+-- letters r, n and t. A pattern meant to strip newlines therefore strips every
+-- r/n/t out of the text instead ("The Chemical Brothers" -> "The Chemical B o
+-- he s"), which only shows up on Latin lyrics and hides on Cyrillic. Use real
+-- escapes ([%c] or [\r\n\t]) instead.
+do
+  local offenders = {}
+  local pipe = io.popen("grep -rnE '\\[[^]]*%[rnt][^]]*\\]' media-lyrics/*.luau 2>/dev/null")
+  if pipe then
+    for line in pipe:lines() do offenders[#offenders + 1] = line end
+    pipe:close()
+  end
+  ok(#offenders == 0,
+    "no %r/%n/%t inside a character class (use [%c] or real escapes)"
+    .. (#offenders > 0 and ("\n      " .. table.concat(offenders, "\n      ")) or ""))
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

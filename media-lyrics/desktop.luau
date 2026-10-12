@@ -45,7 +45,15 @@ end
 
 local function singleLine(text)
   text = tostring(text or "")
-  text = text:gsub("[%r%n%t]+", " ")
+  -- Use REAL escapes here, never the percent-r / percent-n / percent-t shorthand:
+  -- in this runtime those are not character classes, they degrade to the literal
+  -- letters r, n and t, so such a class silently means "any run of r/n/t" and
+  -- eats those letters out of the string ("The Chemical Brothers" ->
+  -- "The Chemical B o he s"). Cyrillic text is unaffected, which is why the bug
+  -- looked like it only hit Latin lyrics. panel.luau already gets this right.
+  -- tests/run_lib_tests.lua has a source guard that fails the build if the
+  -- shorthand ever comes back.
+  text = text:gsub("[\r\n\t]+", " ")
   text = text:gsub("  +", " ")
   return text
 end
@@ -181,12 +189,22 @@ local function render()
       tooltip = "Next track" }),
   })
 
-  desktopWidget.render(ui.column({
-    key = "root", gap = 10, padding = 14, align = "start",
-    fill = "surface_variant/0.85", radius = 14, border = "primary/0.35", borderWidth = 1,
-  }, {
+  -- Match the built-in desktop widgets: no card, no border, no divider by
+  -- default — the content sits directly on the wallpaper. A background is
+  -- opt-in, exactly like the built-in clock/weather widgets expose `background`.
+  local rootProps = {
+    key = "root", gap = 8, align = "start",
+  }
+  if cfgBool("background", false) then
+    rootProps.fill = "surface_variant/0.85"
+    rootProps.radius = 14
+    rootProps.padding = 14
+    rootProps.border = "outline/0.35"
+    rootProps.borderWidth = 1
+  end
+
+  desktopWidget.render(ui.column(rootProps, {
     header,
-    ui.separator({ key = "sep", thickness = 1, color = "outline/0.35" }),
     ui.column({ key = "lyrics", gap = 3, align = "start", minWidth = 260 }, lyricNodes),
     transport,
   }))
