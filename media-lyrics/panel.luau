@@ -574,6 +574,11 @@ local function buildLyricsBody(s)
         key = "lyr" .. idx,
         align = "center", justify = "center",
         onClick = (lineTime >= 0) and function() queueSeek(lineTime) end or nil,
+        -- Tooltip (plugin API 32): says the row is a seek target and where it
+        -- lands. On a host below 5.2 the prop is logged and ignored, so this is
+        -- a pure enhancement and does not justify raising plugin_api.
+        tooltip = (lineTime >= 0)
+          and (noctalia.tr("panel.seek-to") .. " " .. fmtTime(lineTime)) or nil,
       }
       -- Hover highlight without a crash: NEVER call render() inside onHover —
       -- re-creating the tree mid-event-dispatch kills the host (plugin got
@@ -736,10 +741,16 @@ local function buildInfoRow(s)
 
   local cover = buildCover(s, L.cover)
 
-  local function ctl(glyph, action, enabled, size)
+  -- `tip` uses the container/button tooltip prop (Noctalia 5.2 / plugin API 32).
+  -- A host older than that logs "has no prop 'tooltip', ignored" and simply shows
+  -- nothing — the prop is cosmetic, so it is NOT worth raising plugin_api for it
+  -- and dropping every user below 5.2 (same feature-detect stance as the store's
+  -- pixel-shift, which calls getColor() with a fallback while staying at API 30).
+  local function ctl(glyph, action, enabled, size, tip)
     return ui.button({
       glyph = glyph, glyphSize = size or L.ctl, variant = "ghost",
       enabled = enabled ~= false, onClick = function() sendCmd(action) end,
+      tooltip = tip,
     })
   end
 
@@ -751,13 +762,14 @@ local function buildInfoRow(s)
   -- quiet time label underneath, right-aligned
   local transportCol = ui.column({ key = "transportCol", gap = 2, align = "center", justify = "center" }, {
     ui.row({ gap = T.gapMicro, align = "center", justify = "end" }, {
-      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, L.ctl),
+      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, L.ctl, "Previous track"),
       ui.button({
         glyph = mainGlyph, glyphSize = L.main, variant = "primary",
         enabled = s.hasPlayer == true, onClick = function() sendCmd("toggle") end,
         controlSize = "sm",
+        tooltip = s.playing and "Pause" or "Play",
       }),
-      ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl),
+      ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl, "Next track"),
     }),
     ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
       fontSize = T.fsTime, color = T.colTime }),

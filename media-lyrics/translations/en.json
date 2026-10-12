@@ -12,6 +12,7 @@
     "no-variants": "No alternative lyrics found",
     "now-playing": "NOW PLAYING",
     "reload-lyrics": "Reload lyrics",
+    "seek-to": "Seek to",
     "synced": "synced",
     "unsynced": "unsynced",
     "variant-default": "Default"
@@ -36,6 +37,26 @@
     "artist_first": {
       "description": "Show \"Artist - Title\" instead of \"Title - Artist\".",
       "label": "Artist first"
+    },
+    "audio_spectrum": {
+      "description": "Draw a live audio band meter in the chip (audio-reactive). The host feeds the PipeWire monitor spectrum to the widget; nothing extra is installed.",
+      "label": "Audio spectrum"
+    },
+    "audio_spectrum_bands": {
+      "description": "How many bands the meter draws (1–128; the panel width usually fits about 8–24).",
+      "label": "Spectrum bands"
+    },
+    "desktop_lines": {
+      "description": "How many lyric lines the desktop widget shows (the current line is highlighted).",
+      "label": "Lyric lines"
+    },
+    "desktop_show_artist": {
+      "description": "Show the artist line under the title on the desktop widget.",
+      "label": "Show artist"
+    },
+    "desktop_show_cover": {
+      "description": "Show the album artwork on the desktop widget.",
+      "label": "Show album art"
     },
     "hide_album_art": {
       "description": "Hide the artwork and its fallback icon.",

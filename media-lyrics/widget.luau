@@ -67,6 +67,9 @@ local function widgetOptions()
     artSize = math.max(8, math.min(96, cfgInt("art_size", 16))),
     scroll = scroll,
     hideWhenNoMedia = cfgBool("hide_when_no_media", false),
+    -- audio-reactive chip (host-driven, no API level required)
+    spectrum = cfgBool("audio_spectrum", false),
+    spectrumBands = math.max(1, math.min(128, cfgInt("audio_spectrum_bands", 8))),
   }
 end
 
@@ -194,10 +197,79 @@ local function setChipVisible(want)
   end
 end
 
+-- ── audio spectrum (audio-reactive chip) ────────────────────────────────────
+-- The host drives this ONLY when the widget declares `audio_spectrum = true`
+-- (plugin_widget.cpp reads settingBool "audio_spectrum" and settingInt
+-- "audio_spectrum_bands" itself, so no plugin API level is involved). It then
+-- calls onAudioSpectrum(valuesCsv, stateCsv) at ~60 Hz, COALESCED — only the
+-- latest frame matters, so a slow script cannot accumulate stale frames.
+-- stateCsv is "audioActive,mprisPlaying" as 0/1.
+--
+-- The tree is not rebuilt on every frame (60 rebuilds/s in Luau is wasteful for
+-- a bar meter): values are stored and the chip repaints at most every
+-- SPECTRUM_REFRESH_MS. onAudioSpectrum itself is defined AFTER renderFrom
+-- (see the contract note above) so it can call it.
+
+local SPECTRUM_REFRESH_MS = 80     -- ~12 fps — enough for a bar meter
+local spectrumValues = nil         -- array of levels 0..1, or nil before the first frame
+local spectrumActive = false       -- audio is actually flowing
+local spectrumLastPaint = 0
+
+local function parseSpectrum(csv)
+  local out = {}
+  for v in string.gmatch(csv or "", "[^,]+") do
+    local n = tonumber(v)
+    if n == nil then break end
+    out[#out + 1] = n
+  end
+  return out
+end
+
+-- Small band meter: one box per band, height scaled to the widget's icon slot.
+local function spectrumNode(o)
+  local vals = spectrumValues
+  if not o.spectrum or type(vals) ~= "table" or #vals == 0 then return nil end
+  local want = math.min(o.spectrumBands, #vals, 24)
+  local maxH = math.max(8, o.artSize)
+  local bars = {}
+  -- average adjacent bands down to `want` so a large band count still fits
+  local step = #vals / want
+  for i = 1, want do
+    local sum, cnt = 0, 0
+    local from = math.floor((i - 1) * step) + 1
+    local to = math.min(#vals, math.floor(i * step))
+    if to < from then to = from end
+    for k = from, to do
+      sum = sum + (tonumber(vals[k]) or 0)
+      cnt = cnt + 1
+    end
+    local level = cnt > 0 and (sum / cnt) or 0
+    local h = math.max(2, math.floor(level * maxH + 2))
+    bars[#bars + 1] = ui.box({
+      key = "sp" .. i, width = 2, height = h, radius = 1,
+      fill = spectrumActive and "primary" or "outline",
+      opacity = spectrumActive and 1 or 0.5,
+    })
+  end
+  return ui.row({ key = "spectrum", gap = 1, align = "center", height = maxH }, bars)
+end
+
 -- ── render ──────────────────────────────────────────────────────────────────
 
 local lastKey = ""
 local function renderKey(m, o, shown)
+  -- coarse spectrum signature: the meter repaints on the forced repaints from
+  -- onAudioSpectrum, but including it here keeps an ordinary update() tick from
+  -- skipping a repaint when the bands have changed in the meantime.
+  local specSig = ""
+  if o.spectrum and type(spectrumValues) == "table" and #spectrumValues > 0 then
+    local sum = 0
+    for i = 1, #spectrumValues do
+      sum = sum + (tonumber(spectrumValues[i]) or 0)
+    end
+    specSig = tostring(#spectrumValues) .. ":" .. tostring(math.floor(sum * 12))
+      .. ":" .. tostring(spectrumActive)
+  end
   return table.concat({
     m.hasPlayer and "1" or "0",
     tostring(m.playing),
@@ -210,6 +282,7 @@ local function renderKey(m, o, shown)
     tostring(o.artistFirst),
     tostring(o.artSize),
     barWidget.isVertical() and "V" or "H",
+    specSig,
   }, "|")
 end
 
@@ -337,7 +410,34 @@ local function renderFrom(m, force)
   }, { label })
   children[#children + 1] = textNode
 
+  -- audio-reactive band meter (only when the setting is on and frames arrived)
+  local spec = spectrumNode(o)
+  if spec then children[#children + 1] = spec end
+
   barWidget.render(ui.row({ gap = GAP, align = "center" }, children))
+end
+
+-- ── audio spectrum entry point ──────────────────────────────────────────────
+
+-- Defined AFTER renderFrom on purpose: a `local function` declared lower in the
+-- file is not visible above it (Luau locals are not hoisted), and calling one
+-- from an earlier-defined function resolves to a nil global at run time — the
+-- class of bug that once broke every seek in the panel. The host calls this only
+-- when the widget declares `audio_spectrum = true`.
+function onAudioSpectrum(valuesCsv, stateCsv)
+  local vals = parseSpectrum(valuesCsv)
+  if #vals == 0 then return end
+  spectrumValues = vals
+  -- stateCsv is "audioActive,mprisPlaying"
+  spectrumActive = string.sub(tostring(stateCsv or "0"), 1, 1) == "1"
+  local nowMs = 0
+  pcall(function() nowMs = noctalia.nowMs() end)
+  if nowMs > 0 and spectrumLastPaint > 0
+    and (nowMs - spectrumLastPaint) < SPECTRUM_REFRESH_MS then
+    return
+  end
+  spectrumLastPaint = nowMs
+  renderFrom(media(), true)
 end
 
 -- ── loop ────────────────────────────────────────────────────────────────────

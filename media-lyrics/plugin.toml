@@ -188,6 +188,68 @@ entry = "widget.luau"
 
   # (show_progress was dropped — see ROADMAP "show_progress in bar widget")
 
+  # Audio-reactive chip: with `audio_spectrum` on, the host feeds this widget
+  # the PipeWire monitor spectrum through onAudioSpectrum() at ~60 Hz
+  # (coalesced) and the chip draws a small band meter. Both keys are plain
+  # widget settings understood by the host itself (plugin_widget.cpp:
+  # settingBool "audio_spectrum" / settingInt "audio_spectrum_bands") — this is
+  # NOT gated by a plugin API level. Verified live on Noctalia 5.2.0.
+  [[widget.setting]]
+  key = "audio_spectrum"
+  type = "bool"
+  label_key = "settings.audio_spectrum.label"
+  description_key = "settings.audio_spectrum.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "audio_spectrum_bands"
+  type = "int"
+  label_key = "settings.audio_spectrum_bands.label"
+  description_key = "settings.audio_spectrum_bands.description"
+  default = 8
+  min = 1
+  max = 128
+  visible_when = { key = "audio_spectrum", values = ["true"] }
+
+# Desktop widget: the same now-playing/lyrics view as a background layer-shell
+# tile pinned to the desktop (and visible on the lockscreen), independent of any
+# panel. This is what the "pin to desktop" roadmap item actually needs — a
+# persistent panel still disappears when no panel surface is up, a desktop
+# widget does not. Available at plugin_api 20 (official-plugins/timer ships one),
+# so it costs us nothing in compatibility. Verified live on Noctalia 5.2.0.
+#
+# ORDER MATTERS: this block sits immediately after [[widget]]. Declared last
+# (after [[shortcut]]) the host silently drops it — the plugin still loads, but
+# reports one entry fewer and `desktop_widgets.widget.<name>.type =
+# "<id>:desktop"` is rejected as an unrecognized type. Verified both ways.
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "show_artist"
+  type = "bool"
+  label_key = "settings.desktop_show_artist.label"
+  description_key = "settings.desktop_show_artist.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "show_cover"
+  type = "bool"
+  label_key = "settings.desktop_show_cover.label"
+  description_key = "settings.desktop_show_cover.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "lines"
+  type = "int"
+  label_key = "settings.desktop_lines.label"
+  description_key = "settings.desktop_lines.description"
+  default = 3
+  min = 1
+  max = 9
+
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
 [[service]]
