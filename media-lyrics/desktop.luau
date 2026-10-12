@@ -210,6 +210,39 @@ local function sendCmd(action)
 end
 
 -- ── render ──────────────────────────────────────────────────────────────────
+--
+-- GEOMETRY. The host centres the plugin's tree inside the widget's fixed box, and
+-- nothing inside can stretch to fill it (flexGrow on the root does nothing), so the
+-- only way to keep the header and the transport from moving — and the only way to
+-- stop the "no lyrics" state collapsing into a blob in the middle — is for the tree
+-- to be the SAME HEIGHT in every state. So the widget is three bands:
+--
+--   header    fixed height, built even when there is no player at all
+--   middle    always exactly `midH` pixels, whatever it happens to contain
+--   transport fixed height, disabled rather than removed when idle
+--
+-- Only the middle's content changes between states; its box never does, so the
+-- header sits at the top and the transport at the bottom in every state alike.
+--
+-- Row heights below are what the host actually produces, measured on the desktop:
+-- 12px text renders 16px a line, the 14px active line 18px, and a wrapped row costs
+-- two lines. Guessing these wrong is what would put the geometry off.
+
+local ROW_H = 16
+local ROW_H_ACTIVE = 18
+local ROW_H_FS = 12
+local ROW_H_ACTIVE_FS = 14
+
+-- A snapshot with every field the render path touches, so no branch needs a nil
+-- check and the idle state lays out through exactly the same code as a playing one.
+local function idleSnapshot()
+  return {
+    hasPlayer = false, playing = false, canGoPrev = false, canGoNext = false,
+    title = "", artist = "", album = "", artUrl = "",
+    lengthSec = 0, positionSec = 0, positionAt = 0,
+    lyrics = nil, lyricsStatus = "none",
+  }
+end
 
 local function render()
   local showArtist = cfgBool("show_artist", true)
@@ -219,44 +252,40 @@ local function render()
   local useBg = cfgBool("background", false)
   local textW = width - (useBg and 30 or 0)   -- padding only exists with a card
 
-  if type(snap) ~= "table" or snap.hasPlayer ~= true then
-    desktopWidget.render(ui.column({ gap = 4, align = "center", padding = 12,
-      fill = "surface_variant/0.85", radius = 12 }, {
-      ui.glyph({ key = "idle", name = "music-off", size = 20, color = "outline" }),
-      ui.label({ key = "idletx", text = noctalia.tr("panel.no-media-player"),
-        fontSize = 12, color = "on_surface_variant" }),
-    }))
-    return
-  end
+  local live = (type(snap) == "table" and snap.hasPlayer == true)
+  local s = live and snap or idleSnapshot()
 
-  local s = snap
-  local dim = s.playing and 1 or 0.65
-  local artOk = type(s.artUrl) == "string" and s.artUrl ~= ""
-    and noctalia.fileExists(s.artUrl)
+  -- Height of the middle band: a full window, every row on two lines, one of them
+  -- the active (taller) row. It is the WORST case, so the band never has to shrink
+  -- and its content can never overflow.
+  local midH = (wantLines - 1) * 2 * ROW_H + 2 * ROW_H_ACTIVE
 
-  -- header: cover + title/artist + time
+  -- ── band 1: header ─────────────────────────────────────────────────────────
   local headKids = {}
   if showCover then
-    if artOk then
+    if type(s.artUrl) == "string" and s.artUrl ~= "" and noctalia.fileExists(s.artUrl) then
       headKids[#headKids + 1] = ui.image({ key = "cover", path = s.artUrl,
         width = 56, height = 56, radius = 14, fit = "cover" })
     else
       headKids[#headKids + 1] = ui.box({ key = "coverph", width = 56, height = 56,
         radius = 14, fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
         align = "center" }, {
-        ui.glyph({ name = "disc", size = 30, color = "on_surface_variant" }),
+        ui.glyph({ name = live and "disc" or "music-off", size = 30, color = "on_surface_variant" }),
       })
     end
   end
 
+  local title = singleLine(s.title)
+  if title == "" then title = noctalia.tr("panel.no-media-player") end
+  local artist = singleLine(s.artist ~= "" and s.artist or s.album)
+  if artist == "" then artist = noctalia.tr("common.unknown-artist") end
+
   local infoKids = {
-    ui.label({ key = "title", text = fit(singleLine(s.title), textW, 15), fontSize = 15,
-      color = "on_surface" }),
+    ui.label({ key = "title", text = fit(title, textW, 15), fontSize = 15, color = "on_surface" }),
   }
   if showArtist then
-    infoKids[#infoKids + 1] = ui.label({ key = "artist",
-      text = fit(singleLine(s.artist ~= "" and s.artist or s.album), textW, 12), fontSize = 12,
-      color = "on_surface_variant" })
+    infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, textW, 12),
+      fontSize = 12, color = "on_surface_variant" })
   end
   infoKids[#infoKids + 1] = ui.row({ key = "time", gap = 6, align = "center" }, {
     ui.glyph({ name = s.playing and "player-pause" or "player-play", size = 11, color = "primary" }),
@@ -264,81 +293,67 @@ local function render()
       fontSize = 11, color = "on_surface_variant" }),
   })
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
-
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
 
-  -- lyrics window: the current line centred, `wantLines` lines total
-  local lyricNodes = {}
-  local have = 0
-  local hasLyrics = type(s.lyrics) == "table" and #s.lyrics > 0
-  if hasLyrics then
+  -- ── band 2: the lyric window, always midH tall ─────────────────────────────
+  -- Content goes at the TOP of the band and the slack collects below it, so the
+  -- first line sits in the same place whether the window is full, half empty or
+  -- showing a hint. Centring the slack instead would make the active line drift
+  -- as rows wrap.
+  local midNodes, have = {}, 0
+  local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
+
+  if lines then
     local active = activeLine(s)
-    local n = #s.lyrics
+    local n = #lines
     local half = math.floor((wantLines - 1) / 2)
-    have = 0   -- px actually taken by the rows we manage to render
     local from = math.max(1, active - half)
     local to = math.min(n, from + wantLines - 1)
     if to - from + 1 < wantLines then from = math.max(1, to - wantLines + 1) end
     for i = from, to do
-      local line = s.lyrics[i]
       local isActive = (i == active)
       local dist = math.abs(i - active)
       local color = isActive and "primary" or (dist <= 1 and "on_surface" or "on_surface_variant")
-      -- Wrap by hand and reserve two lines of height either way, so a longer
-      -- line neither runs off the edge nor changes the widget's size. Without the
-      -- fixed height the box would grow and shrink from line to line.
-      local fs = isActive and 14 or 12
-      local wrapped = wrapLyric(singleLine(line.text), fs, textW)
-      -- One line and two lines are 16px apart, so the block has to be padded back to
-      -- a fixed height; otherwise the host re-centres the whole tree and the header
-      -- and transport drift up and down. The padding is a single box BELOW the
-      -- lyrics, not an empty line under every row, so the visible lines stay tight.
-      have = have + ((wrapped:find("\n", 1, true) ~= nil) and (isActive and 36 or 32)
-                                                       or  (isActive and 18 or 16))
-      lyricNodes[#lyricNodes + 1] = ui.label({ key = "lyr" .. i,
+      local fs = isActive and ROW_H_ACTIVE_FS or ROW_H_FS
+      local wrapped = wrapLyric(singleLine(lines[i].text), fs, textW)
+      local twoLines = wrapped:find("\n", 1, true) ~= nil
+      have = have + (twoLines and 2 * (isActive and ROW_H_ACTIVE or ROW_H)
+                              or (isActive and ROW_H_ACTIVE or ROW_H))
+      midNodes[#midNodes + 1] = ui.label({ key = "lyr" .. i,
         text = wrapped, fontSize = fs, color = color })
     end
-    -- Pad the block to a constant height: wantLines rows, one of them the active
-    -- (14px) row. Short rows and the near-empty window at the start or end of a
-    -- track both show up here as slack, and it all collects in one place.
-    local slack = ((wantLines - 1) * 32 + 36) - have
-    if slack > 0 then
-      lyricNodes[#lyricNodes + 1] = ui.box({ key = "rowPad", height = slack })
-    end
-  elseif s.lyricsStatus == "loading" then
-    lyricNodes[#lyricNodes + 1] = ui.label({ key = "l1", text = noctalia.tr("panel.loading-lyrics"),
-      fontSize = 11, color = "on_surface_variant" })
   else
-    lyricNodes[#lyricNodes + 1] = ui.label({ key = "l1", text = noctalia.tr("panel.no-lyrics"),
-      fontSize = 11, color = "on_surface_variant" })
+    -- loading / nothing found / nothing playing: one hint line in the same place
+    -- the first lyric line would be, so the band looks the same in every state
+    local key = (s.lyricsStatus == "loading") and "panel.loading-lyrics" or "panel.no-lyrics"
+    midNodes[#midNodes + 1] = ui.label({ key = "hint", text = noctalia.tr(key),
+      fontSize = ROW_H_FS, color = "on_surface_variant" })
+    have = ROW_H
   end
 
-  -- transport (desktop widgets take no keyboard focus, so buttons are the only
-  -- way to drive playback from here; they reuse the panel's command channel)
+  if have < midH then
+    midNodes[#midNodes + 1] = ui.box({ key = "midSlack", height = midH - have })
+  end
+
+  -- ── band 3: transport ──────────────────────────────────────────────────────
+  -- Always present, disabled rather than removed, so the band never changes size.
   local transport = ui.row({ key = "transport", gap = 4, align = "center", justify = "start" }, {
     ui.button({ glyph = "player-skip-back", glyphSize = 14, variant = "ghost", controlSize = "sm",
-      enabled = s.canGoPrev ~= false, onClick = function() sendCmd("prev") end,
+      enabled = s.canGoPrev == true, onClick = function() sendCmd("prev") end,
       tooltip = "Previous track" }),
     ui.button({ glyph = s.playing and "player-pause" or "player-play", glyphSize = 16,
       variant = "primary", controlSize = "sm",
       enabled = s.hasPlayer == true, onClick = function() sendCmd("toggle") end,
       tooltip = s.playing and "Pause" or "Play" }),
     ui.button({ glyph = "player-skip-forward", glyphSize = 14, variant = "ghost", controlSize = "sm",
-      enabled = s.canGoNext ~= false, onClick = function() sendCmd("next") end,
+      enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
   })
 
-  -- Match the built-in desktop widgets: no card, no border, no divider by
-  -- default — the content sits directly on the wallpaper. A background is
-  -- opt-in, exactly like the built-in clock/weather widgets expose `background`.
-  local rootProps = {
-    key = "root", gap = 8, align = "start", minWidth = width,
-    -- The host centres the plugin's tree inside the fixed box, so a shorter lyric
-    -- block would move the header down and the transport up. flexGrow makes this
-    -- column fill the box instead, which is what lets the spacers below pin the
-    -- header to the top and the transport to the bottom.
-    flexGrow = 1,
-  }
+  -- Match the built-in desktop widgets: no card, no border, no divider by default —
+  -- the content sits directly on the wallpaper. A background is opt-in, like the
+  -- built-in clock and weather widgets expose.
+  local rootProps = { key = "root", gap = 8, align = "start", minWidth = width }
   if useBg then
     rootProps.fill = "surface_variant/0.85"
     rootProps.radius = 14
@@ -347,16 +362,9 @@ local function render()
     rootProps.borderWidth = 1
   end
 
-  -- The box size is fixed by the widget config, but the lyric block still changes
-  -- height as lines wrap or do not, and without help everything below it slides up
-  -- and down. Two flexible spacers swallow that slack: the header stays pinned to
-  -- the top, the transport to the bottom, and only the lyrics move a little, by
-  -- half of the change rather than all of it.
   desktopWidget.render(ui.column(rootProps, {
     header,
-    ui.box({ key = "slackTop", flexGrow = 1 }),
-    ui.column({ key = "lyrics", gap = 3, align = "start", minWidth = width }, lyricNodes),
-    ui.box({ key = "slackBottom", flexGrow = 1 }),
+    ui.column({ key = "middle", gap = 3, align = "start" }, midNodes),
     transport,
   }))
 end
