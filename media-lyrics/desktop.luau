@@ -130,10 +130,10 @@ local function wrapLyric(text, fontSize, maxW)
   -- would otherwise be ~16px shorter than a row of two and the whole widget would
   -- grow and shrink as the lyrics change. Returning a constant number of lines is
   -- what keeps the box still.
-  if unitEm(text) <= capEm then return text .. "\n" end
+  if unitEm(text) <= capEm then return text end
   local words = {}
   for w in (text .. " "):gmatch("(.-) ") do words[#words + 1] = w end
-  if #words < 2 then return truncEm(text, capEm) .. "\n" end
+  if #words < 2 then return truncEm(text, capEm) end
 
   local wEm, total = {}, 0
   for i = 1, #words do wEm[i] = unitEm(words[i]); total = total + wEm[i] end
@@ -172,7 +172,7 @@ local function wrapLyric(text, fontSize, maxW)
   end
   -- Not reachable while the early "fits on one line" check is in place, but it has
   -- to pad all the same: the row height only stays put if EVERY return is two lines.
-  return table.concat(cur, " ") .. "\n"
+  return table.concat(cur, " ")
 end
 
 -- Position now, interpolated from the last published sample (the service only
