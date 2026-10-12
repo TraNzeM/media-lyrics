@@ -295,75 +295,71 @@ local function render()
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
 
-  -- ── band 2: the lyric window, always midH tall ─────────────────────────────
-  -- Content goes at the TOP of the band and the slack collects below it, so the
-  -- first line sits in the same place whether the window is full, half empty or
-  -- showing a hint. Centring the slack instead would make the active line drift
-  -- as rows wrap.
-  local midNodes, have = {}, 0
+  -- ── band 2: the lyric window — a fixed number of DISPLAY lines ──────────────
+  -- Two properties matter here, and both are about the widget sliding:
+  --   * the band always holds the SAME number of slots, and every slot is exactly one
+  --     line of text at the same font size. A label's real height cannot be measured
+  --     from Lua, so a slot count that depended on wrapping — or a reserve built from
+  --     guessed row heights — made the band drift as the lyrics arrived. The host
+  --     centres the content inside the widget's box, so that drift moved everything;
+  --   * a wrapped lyric therefore consumes two slots instead of making one row taller,
+  --     and the slots that are left over are filled with a space so they still occupy
+  --     a line. The current line is emphasised by colour alone, never by a bigger font,
+  --     because a bigger font would make its slot taller.
+  local maxSlots = math.max(1, math.floor((midH + 3) / (ROW_H + 3)))
+  local slotText, slotKind = {}, {}
+
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
-
   if lines then
-    -- activeLine returns 0 until the playhead passes the first timestamp, so clamp
-    -- before it is ever used as an index: the window below starts from the real row.
     local n = #lines
+    -- activeLine returns 0 until the playhead passes the first timestamp
     local active = math.min(math.max(activeLine(s), 1), n)
-
-    -- Wrap each candidate line once and remember its display height: a row is two
-    -- lines tall when its text had to wrap, and the active row's font is bigger.
-    local cache, fsOf = {}, {}
-    local function wrappedOf(i)
-      if cache[i] == nil then
-        local ln = lines[i]
-        fsOf[i] = (i == active) and ROW_H_ACTIVE_FS or ROW_H_FS
-        cache[i] = wrapLyric(singleLine(ln and ln.text or ""), fsOf[i], textW)
-      end
-      return cache[i], fsOf[i]
+    local function pieces(i)
+      local w = wrapLyric(singleLine(lines[i].text), ROW_H_FS, textW) .. "\n"
+      local out = {}
+      for piece in w:gmatch("([^\n]*)\n") do out[#out + 1] = piece end
+      return out
     end
-    local function rowH(i)
-      local w = wrappedOf(i)
-      return ((w:find("\n", 1, true) ~= nil) and 2 or 1)
-             * ((i == active) and ROW_H_ACTIVE or ROW_H)
-    end
-
-    -- Grow the window outward from the current line until the band is full. The band
-    -- reserves the worst case for `wantLines` rows, so on a track whose lines do not
-    -- wrap there is room for more — and filling it is free, because the band's height
-    -- is what keeps the widget's size steady. `wantLines` is a floor, not a cap.
+    -- Grow the window around the current line until the next line would no longer fit.
     local lo, hi = active, active
-    have = rowH(active)
+    local total = #pieces(active)
     local growDown, switched = true, false
     while true do
       local cand = growDown and (hi + 1) or (lo - 1)
-      if cand >= 1 and cand <= n and have + rowH(cand) + 3 <= midH then
+      local add = (cand >= 1 and cand <= n) and #pieces(cand) or nil
+      if add and total + add <= maxSlots then
         if growDown then hi = cand else lo = cand end
-        have = have + rowH(cand) + 3
+        total = total + add
         growDown, switched = not growDown, false
       else
         if switched then break end
         growDown, switched = not growDown, true
       end
     end
-
     for i = lo, hi do
-      local isActive = (i == active)
-      local dist = math.abs(i - active)
-      local color = isActive and "primary" or (dist <= 1 and "on_surface" or "on_surface_variant")
-      local w, fs = wrappedOf(i)
-      midNodes[#midNodes + 1] = ui.label({ key = "lyr" .. i,
-        text = w, fontSize = fs, color = color })
+      local kind = (i == active) and "cur"
+        or (((i == active + 1) or (i == active - 1)) and "near" or "far")
+      for _, piece in ipairs(pieces(i)) do
+        slotText[#slotText + 1] = piece
+        slotKind[#slotKind + 1] = kind
+      end
     end
   else
-    -- loading / nothing found / nothing playing: one hint line in the same place
-    -- the first lyric line would be, so the band looks the same in every state
-    local key = (s.lyricsStatus == "loading") and "panel.loading-lyrics" or "panel.no-lyrics"
-    midNodes[#midNodes + 1] = ui.label({ key = "hint", text = noctalia.tr(key),
-      fontSize = ROW_H_FS, color = "on_surface_variant" })
-    have = ROW_H
+    -- loading / nothing found / nothing playing: the hint sits in the first slot, and
+    -- the rest of the slots stay empty, so the band is the same height in every state
+    slotText[1] = noctalia.tr((s.lyricsStatus == "loading") and "panel.loading-lyrics"
+                                                              or "panel.no-lyrics")
+    slotKind[1] = "hint"
   end
 
-  if have < midH then
-    midNodes[#midNodes + 1] = ui.box({ key = "midSlack", height = midH - have })
+  local midNodes = {}
+  for k = 1, maxSlots do
+    local kind = slotKind[k]
+    local color = (kind == "cur" and "primary")
+      or (kind == "near" and "on_surface")
+      or "on_surface_variant"
+    midNodes[#midNodes + 1] = ui.label({ key = "slot" .. k,
+      text = slotText[k] or " ", fontSize = ROW_H_FS, color = color })
   end
 
   -- ── band 3: transport ──────────────────────────────────────────────────────

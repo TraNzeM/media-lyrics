@@ -134,5 +134,25 @@ do
     .. (raw and "\n      a raw `local active = activeLine(s)` is back" or ""))
 end
 
+-- ── source guard: the middle band has a fixed number of slots ──
+-- The band's height has to be identical in every state, because the host centres the
+-- content in the widget's box: if the band grows or shrinks, the whole widget slides as
+-- the lyrics arrive. A label's real height cannot be measured from Lua, so the band must
+-- not depend on how many lines there are, on wrapping, or on a guessed row height.
+do
+  local f = io.open("media-lyrics/desktop.luau")
+  local body = f and f:read("a") or ""
+  if f then f:close() end
+  local slots = body:find("math.max(1, math.floor((midH + 3) / (ROW_H + 3)))", 1, true) ~= nil
+    and body:find("for k = 1, maxSlots do", 1, true) ~= nil
+  local slack = body:find("midSlack", 1, true) ~= nil
+  local perRowFont = body:find("fontSize = ROW_H_ACTIVE_FS", 1, true) ~= nil
+  ok(slots and not slack and not perRowFont,
+    "the lyric band is a fixed number of equal slots"
+    .. (not slots and "\n      the fixed slot count is gone" or "")
+    .. (slack and "\n      a content-sized slack box is back: the height would drift" or "")
+    .. (perRowFont and "\n      a bigger font on the current line makes its slot taller" or ""))
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end
