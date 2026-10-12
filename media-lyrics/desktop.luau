@@ -306,21 +306,49 @@ local function render()
   if lines then
     local active = activeLine(s)
     local n = #lines
-    local half = math.floor((wantLines - 1) / 2)
-    local from = math.max(1, active - half)
-    local to = math.min(n, from + wantLines - 1)
-    if to - from + 1 < wantLines then from = math.max(1, to - wantLines + 1) end
-    for i = from, to do
+
+    -- Wrap each candidate line once and remember its display height: a row is two
+    -- lines tall when its text had to wrap, and the active row's font is bigger.
+    local cache, fsOf = {}, {}
+    local function wrappedOf(i)
+      if cache[i] == nil then
+        fsOf[i] = (i == active) and ROW_H_ACTIVE_FS or ROW_H_FS
+        cache[i] = wrapLyric(singleLine(lines[i].text), fsOf[i], textW)
+      end
+      return cache[i], fsOf[i]
+    end
+    local function rowH(i)
+      local w = wrappedOf(i)
+      return ((w:find("\n", 1, true) ~= nil) and 2 or 1)
+             * ((i == active) and ROW_H_ACTIVE or ROW_H)
+    end
+
+    -- Grow the window outward from the current line until the band is full. The band
+    -- reserves the worst case for `wantLines` rows, so on a track whose lines do not
+    -- wrap there is room for more — and filling it is free, because the band's height
+    -- is what keeps the widget's size steady. `wantLines` is a floor, not a cap.
+    local lo, hi = active, active
+    have = rowH(active)
+    local growDown, switched = true, false
+    while true do
+      local cand = growDown and (hi + 1) or (lo - 1)
+      if cand >= 1 and cand <= n and have + rowH(cand) + 3 <= midH then
+        if growDown then hi = cand else lo = cand end
+        have = have + rowH(cand) + 3
+        growDown, switched = not growDown, false
+      else
+        if switched then break end
+        growDown, switched = not growDown, true
+      end
+    end
+
+    for i = lo, hi do
       local isActive = (i == active)
       local dist = math.abs(i - active)
       local color = isActive and "primary" or (dist <= 1 and "on_surface" or "on_surface_variant")
-      local fs = isActive and ROW_H_ACTIVE_FS or ROW_H_FS
-      local wrapped = wrapLyric(singleLine(lines[i].text), fs, textW)
-      local twoLines = wrapped:find("\n", 1, true) ~= nil
-      have = have + (twoLines and 2 * (isActive and ROW_H_ACTIVE or ROW_H)
-                              or (isActive and ROW_H_ACTIVE or ROW_H))
+      local w, fs = wrappedOf(i)
       midNodes[#midNodes + 1] = ui.label({ key = "lyr" .. i,
-        text = wrapped, fontSize = fs, color = color })
+        text = w, fontSize = fs, color = color })
     end
   else
     -- loading / nothing found / nothing playing: one hint line in the same place
