@@ -58,6 +58,26 @@ local function singleLine(text)
   return text
 end
 
+-- Keep the widget from twitching. A desktop widget is auto-sized by default, so
+-- every longer lyric line would resize the surface and every shorter one would
+-- shrink it again. Each string is cut to a budget derived from the widget width,
+-- and the root column carries the same width as a minimum so short lines cannot
+-- pull it in either. Set `width` once (or the editor's box_width) and it stays put.
+local function fit(text, widthPx, fontSize)
+  if not widthPx or widthPx <= 0 then return text end
+  local budget = math.max(6, math.floor(widthPx / ((fontSize or 12) * 0.52)))
+  local count, i = 0, 1
+  while i <= #text and count < budget do
+    local b = string.byte(text, i) or 0
+    local step = 1
+    if b >= 0xF0 then step = 4 elseif b >= 0xE0 then step = 3 elseif b >= 0xC0 then step = 2 end
+    i = i + step
+    count = count + 1
+  end
+  if i > #text then return text end
+  return string.sub(text, 1, i - 1) .. "…"
+end
+
 -- Position now, interpolated from the last published sample (the service only
 -- publishes every 150 ms; the desktop widget ticks on second boundaries, so a
 -- naive read would step visibly).
@@ -98,6 +118,7 @@ local function render()
   local showArtist = cfgBool("show_artist", true)
   local showCover = cfgBool("show_cover", true)
   local wantLines = cfgInt("lines", 3, 1, 9)
+  local width = cfgInt("width", 320, 160, 900)
 
   if type(snap) ~= "table" or snap.hasPlayer ~= true then
     desktopWidget.render(ui.column({ gap = 4, align = "center", padding = 12,
@@ -130,12 +151,12 @@ local function render()
   end
 
   local infoKids = {
-    ui.label({ key = "title", text = singleLine(s.title), fontSize = 15,
+    ui.label({ key = "title", text = fit(singleLine(s.title), width, 15), fontSize = 15,
       color = "on_surface" }),
   }
   if showArtist then
     infoKids[#infoKids + 1] = ui.label({ key = "artist",
-      text = singleLine(s.artist ~= "" and s.artist or s.album), fontSize = 12,
+      text = fit(singleLine(s.artist ~= "" and s.artist or s.album), width, 12), fontSize = 12,
       color = "on_surface_variant" })
   end
   infoKids[#infoKids + 1] = ui.row({ key = "time", gap = 6, align = "center" }, {
@@ -163,7 +184,7 @@ local function render()
       local dist = math.abs(i - active)
       local color = isActive and "primary" or (dist <= 1 and "on_surface" or "on_surface_variant")
       lyricNodes[#lyricNodes + 1] = ui.label({ key = "lyr" .. i,
-        text = singleLine(line.text), fontSize = isActive and 14 or 12,
+        text = fit(singleLine(line.text), width, isActive and 14 or 12), fontSize = isActive and 14 or 12,
         color = color })
     end
   elseif s.lyricsStatus == "loading" then
@@ -193,7 +214,7 @@ local function render()
   -- default — the content sits directly on the wallpaper. A background is
   -- opt-in, exactly like the built-in clock/weather widgets expose `background`.
   local rootProps = {
-    key = "root", gap = 8, align = "start",
+    key = "root", gap = 8, align = "start", minWidth = width,
   }
   if cfgBool("background", false) then
     rootProps.fill = "surface_variant/0.85"
@@ -205,7 +226,7 @@ local function render()
 
   desktopWidget.render(ui.column(rootProps, {
     header,
-    ui.column({ key = "lyrics", gap = 3, align = "start", minWidth = 260 }, lyricNodes),
+    ui.column({ key = "lyrics", gap = 3, align = "start", minWidth = width }, lyricNodes),
     transport,
   }))
 end

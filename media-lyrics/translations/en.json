@@ -62,6 +62,10 @@
       "description": "Show the album artwork on the desktop widget.",
       "label": "Show album art"
     },
+    "desktop_width": {
+      "description": "Fixed widget width. Without it the surface resizes with every lyric line.",
+      "label": "Widget width"
+    },
     "hide_album_art": {
       "description": "Hide the artwork and its fallback icon.",
       "label": "Hide album art"

@@ -227,6 +227,18 @@ entry = "widget.luau"
 id = "desktop"
 entry = "desktop.luau"
 
+  # Fixed widget width in logical pixels. The widget is auto-sized by default, so
+  # without this every longer lyric line widens the surface and every shorter one
+  # narrows it again. The editor's box_width does the same job if it is set.
+  [[desktop_widget.setting]]
+  key = "width"
+  type = "int"
+  label_key = "settings.desktop_width.label"
+  description_key = "settings.desktop_width.description"
+  default = 320
+  min = 160
+  max = 900
+
   # Opt-in card look. The built-in desktop widgets put their content straight on
   # the wallpaper with no frame, so the widget matches that by default and this
   # only adds a surface behind it when asked.
