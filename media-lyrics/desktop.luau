@@ -58,24 +58,113 @@ local function singleLine(text)
   return text
 end
 
--- Keep the widget from twitching. A desktop widget is auto-sized by default, so
--- every longer lyric line would resize the surface and every shorter one would
--- shrink it again. Each string is cut to a budget derived from the widget width,
--- and the root column carries the same width as a minimum so short lines cannot
--- pull it in either. Set `width` once (or the editor's box_width) and it stays put.
-local function fit(text, widthPx, fontSize)
-  if not widthPx or widthPx <= 0 then return text end
-  local budget = math.max(6, math.floor(widthPx / ((fontSize or 12) * 0.52)))
-  local count, i = 0, 1
-  while i <= #text and count < budget do
+-- ── text measurement and manual wrapping ───────────────────────────────────
+-- The host does NOT wrap ui.label text: a line wider than the surface simply runs
+-- past its edge, which is what used to widen the whole widget. panel.luau solves
+-- this by breaking the string itself and relying on the label rendering an
+-- embedded newline; the same approach is used here. Widths are measured in em with
+-- a per-character advance table rather than in character counts, because "i" and
+-- "m" are nowhere near the same width.
+local function toChars(text)
+  local chars, i = {}, 1
+  while i <= #text do
     local b = string.byte(text, i) or 0
     local step = 1
     if b >= 0xF0 then step = 4 elseif b >= 0xE0 then step = 3 elseif b >= 0xC0 then step = 2 end
+    chars[#chars + 1] = string.sub(text, i, i + step - 1)
     i = i + step
-    count = count + 1
   end
-  if i > #text then return text end
-  return string.sub(text, 1, i - 1) .. "…"
+  return chars
+end
+
+local function charAdv(c)
+  local o = string.byte(c) or 32
+  if o >= 0x80 then return 1.0 end                      -- CJK / emoji: full width
+  if c == " " then return 0.28 end
+  if c == "i" or c == "l" or c == "I" then return 0.27 end
+  if c == "m" then return 0.92 end
+  if c == "w" or c == "M" or c == "W" then return 0.80 end
+  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
+     or c == "|" or c == "`" then return 0.28 end
+  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
+  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
+  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
+  return 0.56
+end
+
+local function unitEm(text)
+  local u = 0
+  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
+  return u
+end
+
+local ADV_SPACE = 0.28
+
+-- Hard-cut to a whole number of em, never splitting a UTF-8 sequence.
+local function truncEm(text, capEm)
+  local out, used = {}, 0
+  for _, ch in ipairs(toChars(text)) do
+    local a = charAdv(ch)
+    if used + a > capEm then return table.concat(out) .. "…" end
+    out[#out + 1] = ch
+    used = used + a
+  end
+  return table.concat(out)
+end
+
+-- Single-line text that fits a fixed pixel width, cut with an ellipsis.
+local function fit(text, widthPx, fontSize)
+  if not widthPx or widthPx <= 0 then return text end
+  return truncEm(text, widthPx / (fontSize or 12))
+end
+
+-- Break a line into AT MOST two display lines that fit `maxW` px at `fontSize`.
+-- A line needing exactly two sub-lines breaks near the middle so the halves look
+-- balanced; anything longer fills the first line and is then ellipsized, because
+-- the row only reserves room for two. Returns the input unchanged when it fits.
+local function wrapLyric(text, fontSize, maxW)
+  local capEm = (maxW or 0) / (fontSize or 12)
+  if capEm <= 0 or unitEm(text) <= capEm then return text end
+  local words = {}
+  for w in (text .. " "):gmatch("(.-) ") do words[#words + 1] = w end
+  if #words < 2 then return truncEm(text, capEm) end
+
+  local wEm, total = {}, 0
+  for i = 1, #words do wEm[i] = unitEm(words[i]); total = total + wEm[i] end
+  total = total + ADV_SPACE * (#words - 1)
+
+  -- Balanced two-line break, both halves must fit.
+  if total <= capEm * 2 then
+    local best, bestScore, aEm = nil, math.huge, 0
+    for i = 1, #words - 1 do
+      aEm = aEm + wEm[i] + (i > 1 and ADV_SPACE or 0)
+      local bEm = total - aEm - ADV_SPACE
+      if aEm <= capEm and bEm <= capEm then
+        local score = math.abs(aEm - bEm)
+        if score < bestScore then best, bestScore = i, score end
+      end
+    end
+    if best then
+      local a, b = {}, {}
+      for j = 1, best do a[#a + 1] = words[j] end
+      for j = best + 1, #words do b[#b + 1] = words[j] end
+      return table.concat(a, " ") .. "\n" .. table.concat(b, " ")
+    end
+  end
+
+  -- Too long for two lines: fill the first, ellipsize the remainder.
+  local cur, curEm = {}, 0
+  for i = 1, #words do
+    local add = wEm[i] + (curEm > 0 and ADV_SPACE or 0)
+    if curEm + add > capEm then
+      local rest = {}
+      for j = i, #words do rest[#rest + 1] = words[j] end
+      return table.concat(cur, " ") .. "\n" .. truncEm(table.concat(rest, " "), capEm)
+    end
+    cur[#cur + 1] = words[i]
+    curEm = curEm + add
+  end
+  return table.concat(cur, " ")
 end
 
 -- Position now, interpolated from the last published sample (the service only
@@ -119,6 +208,8 @@ local function render()
   local showCover = cfgBool("show_cover", true)
   local wantLines = cfgInt("lines", 3, 1, 9)
   local width = cfgInt("width", 320, 160, 900)
+  local useBg = cfgBool("background", false)
+  local textW = width - (useBg and 30 or 0)   -- padding only exists with a card
 
   if type(snap) ~= "table" or snap.hasPlayer ~= true then
     desktopWidget.render(ui.column({ gap = 4, align = "center", padding = 12,
@@ -151,12 +242,12 @@ local function render()
   end
 
   local infoKids = {
-    ui.label({ key = "title", text = fit(singleLine(s.title), width, 15), fontSize = 15,
+    ui.label({ key = "title", text = fit(singleLine(s.title), textW, 15), fontSize = 15,
       color = "on_surface" }),
   }
   if showArtist then
     infoKids[#infoKids + 1] = ui.label({ key = "artist",
-      text = fit(singleLine(s.artist ~= "" and s.artist or s.album), width, 12), fontSize = 12,
+      text = fit(singleLine(s.artist ~= "" and s.artist or s.album), textW, 12), fontSize = 12,
       color = "on_surface_variant" })
   end
   infoKids[#infoKids + 1] = ui.row({ key = "time", gap = 6, align = "center" }, {
@@ -183,8 +274,13 @@ local function render()
       local isActive = (i == active)
       local dist = math.abs(i - active)
       local color = isActive and "primary" or (dist <= 1 and "on_surface" or "on_surface_variant")
+      -- Wrap by hand and reserve two lines of height either way, so a longer
+      -- line neither runs off the edge nor changes the widget's size. Without the
+      -- fixed height the box would grow and shrink from line to line.
+      local fs = isActive and 14 or 12
       lyricNodes[#lyricNodes + 1] = ui.label({ key = "lyr" .. i,
-        text = fit(singleLine(line.text), width, isActive and 14 or 12), fontSize = isActive and 14 or 12,
+        text = wrapLyric(singleLine(line.text), fs, textW), fontSize = fs,
+        height = isActive and 36 or 31,
         color = color })
     end
   elseif s.lyricsStatus == "loading" then
@@ -216,7 +312,7 @@ local function render()
   local rootProps = {
     key = "root", gap = 8, align = "start", minWidth = width,
   }
-  if cfgBool("background", false) then
+  if useBg then
     rootProps.fill = "surface_variant/0.85"
     rootProps.radius = 14
     rootProps.padding = 14
