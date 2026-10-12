@@ -18,8 +18,9 @@
 </p>
 
 A full-featured media player panel with **time-synced lyrics**: karaoke-style
-lyric carousel (14 visible lines), album cover, transport controls, and a
-progress bar — all in one floating panel. **No playerctl, no python daemons,
+lyric carousel (9 / 12 / 16 visible lines per size preset), album cover,
+transport controls, and a progress bar — all in one floating panel, or as a
+**desktop widget** on the wallpaper and the lockscreen. **No playerctl, no python daemons,
 no GTK overlays** — it reads MPRIS directly via Noctalia's D-Bus aggregator
 and fetches lyrics from LRCLIB in pure Luau.
 
@@ -43,9 +44,12 @@ and fetches lyrics from LRCLIB in pure Luau.
   instead of wrapping or clipping
 - 🎚️ **Transport controls + progress** — prev / play-pause / next, shuffle &
   repeat state, interpolated progress bar
+- 🖥️ **Desktop widget** — the same view pinned to the wallpaper and the
+  lockscreen, independent of any panel
+- 📊 **Audio-reactive chip** — optional live spectrum in the bar widget
 - 📦 **Zero dependencies** — pure Luau, works with any MPRIS player
 - 💾 **Offline-friendly** — LRCLIB cache + local `.lrc` files with priority
-- 🌐 **Bilingual** — en/ru UI, timing offset & cache settings
+- 🌐 **Translatable** — every string goes through Noctalia's i18n (English ships in the plugin; other locales via Noctalia Translate), plus timing offset & cache settings
 
 ## Why Media Lyrics?
 
@@ -78,6 +82,9 @@ around a deliberately different set of trade-offs:
   clipped or garbled.
 - **Offline-friendly.** Fetched lyrics are cached on disk and local `.lrc`
   files take priority, so the panel keeps working without network access.
+- **More than a panel.** The same view also ships as a desktop widget: album
+  cover, lyrics and transport on the wallpaper and the lockscreen, where a
+  panel surface cannot reach.
 
 ## Install
 

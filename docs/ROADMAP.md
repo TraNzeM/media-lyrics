@@ -66,6 +66,52 @@ without naming them), and design decisions worth remembering.
       Visible lines are derived per preset from the measured area (0.9.7:
       9 / 12 / 16).
 
+- [x] **Desktop widget** — the now-playing / lyrics view as a `[[desktop_widget]]`
+      tile: pinned to the wallpaper, visible on the lockscreen, independent of any
+      panel surface. This is what "a pinnable surface" really needed — a persistent
+      panel still disappears when no panel surface is up. DONE in 0.9.8; available at
+      `plugin_api 20`, so no API bump was needed. Live-verified on Noctalia 5.2.0
+      together with `onAudioSpectrum` (the audio chip) and node tooltips.
+- [ ] **The desktop widget cannot size itself to its box** — **BLOCKED by host**: the
+      Luau surface for a desktop widget is `render`, `setWantsSecondTicks` and
+      `setNeedsFrameTick` — no entry id and no box size — so `lines` / `width` are
+      per-widget settings instead. A very wide box therefore shows the lyrics as a
+      left-aligned column with unused space to the right. Revisit if the host exposes
+      the box, or the entry id: the plugin could then read its own size out of the
+      widget state itself.
+- [ ] **A narrow box wraps the track title onto two lines**, which makes the header
+      taller — the last place where the widget's height still depends on the track.
+      The host wraps a label that does not fit, and the title cannot be measured
+      before it is laid out.
+
+## Host behaviour worth remembering (verified on Noctalia 5.2.0)
+
+Hard-won facts about the host, kept here so they are not re-discovered.
+
+- **`%r`, `%n` and `%t` are not character classes in this pattern dialect.** They
+  degrade to the literal letters r, n and t, so `[%r%n%t]+` silently means `[rnt]+`
+  and `gsub` strips every r, n and t out of the text — "The Chemical Brothers"
+  renders as "The Chemical B o he s". It hid for a long time because Cyrillic
+  contains none of those letters. Use real escapes (`[\r\n\t]`) or `%c` / `%s`.
+- **The host does not wrap a `ui.label`.** A line that does not fit runs off the
+  node and used to widen the whole widget; the text has to be broken in Lua. It does
+  wrap when the *box* is narrower than the text — which is why a narrow desktop
+  widget shows a two-line title.
+- **A tile with no fixed size is the content plus `2 × background_padding`**, and the
+  content is centred inside the tile. Equal insets on all four sides therefore come
+  from leaving `box_width` / `box_height` at 0; pinning a larger box centres the same
+  content with wider margins, and pinning a smaller one is what makes a band appear
+  to jump.
+- **`ui.box` honours width and height** — the cover placeholder is a 56×56 box — but a
+  box does not render a column, or a list of labels, inside it: it comes out empty.
+  Do not use one as a fixed-height wrapper.
+- **A label's real height cannot be measured from Lua.** A layout that predicts it
+  drifts by that error times the number of rows, which is invisible with one row and
+  obvious with five. Prefer a fixed number of equal slots over an arithmetic reserve.
+- **The host disables a plugin desktop widget after repeated failures** ("disabled
+  after repeated timeouts"), and the reason is in `~/.cache/noctalia/noctalia.log` as
+  a `[luau] … call to 'update' failed:` line naming the file, line and message.
+
 ## Research: what alternative lyric plugins do (and what to borrow)
 
 Analysis performed 2026-09-01 against 4 published lyric/media plugins. Each

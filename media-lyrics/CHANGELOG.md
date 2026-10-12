@@ -4,6 +4,71 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.8] — 2026-10-12
+
+A **desktop widget** — the now-playing view as a tile pinned to the desktop and
+shown on the lockscreen, independent of any panel — plus an audio-reactive bar
+chip, tooltips, and the fixes that came out of running the widget live.
+
+### Added
+
+- **Desktop widget** (`[[desktop_widget]] id = "desktop"`) — the same
+  now-playing / lyrics view as a background layer-shell tile: album cover,
+  title, artist, position, the lyric window and the transport controls, pinned
+  to the desktop and visible on the lockscreen. This is what the "pin to
+  desktop" roadmap item actually needed: a *persistent* panel still disappears
+  when no panel surface is up, a desktop widget does not. Settings: `lines`,
+  `width`, `height`, `padding`, `background`, `show_artist`, `show_cover`.
+  Available at `plugin_api 20`, so no API bump was needed.
+- **Audio-reactive chip** — two bar-widget settings, `audio_spectrum` and
+  `audio_spectrum_bands` (1–128), make the chip draw a live band meter from the
+  host's PipeWire monitor. Both are plain host settings read by the host
+  itself; the plugin only receives the values through `onAudioSpectrum()`.
+  Off by default.
+- **Tooltips** — the transport buttons and the lyric rows now carry tooltips
+  (the lyric rows show their `Seek to` timestamp).
+
+### Changed
+
+- **Long lyric lines wrap** instead of running off the edge. The host does not
+  wrap a label on its own, so the widget breaks the string itself: the width is
+  measured in em (a per-character advance table, Cyrillic and emoji at 1 em) and
+  the break is taken at the word boundary nearest the middle, so the two halves
+  look balanced.
+- **The release is documented** — `docs/reports/noctalia-52-report.html` walks
+  through the Noctalia 5.2 capability work with diagrams, measurements and
+  screenshots, including the dead ends.
+
+### Fixed
+
+- **Every `r`, `n` and `t` disappeared from Latin lyrics.** The widget's
+  single-line sanitiser used `[%r%n%t]+`, but in this pattern dialect `%r`, `%n`
+  and `%t` are **not** character classes — they degrade to the literal letters
+  r, n and t, so the class matched `[rnt]` and `gsub` ate every run. "The
+  Chemical Brothers" rendered as "The Chemical B o he s". Cyrillic has no Latin
+  r/n/t, which is exactly why the bug hid on the lines that were tested by hand;
+  `panel.luau` had always used real escapes. Fixed to `[\r\n\t]+`, with a
+  regression guard that fails on the old spelling.
+- **The widget resized as the lyrics changed.** The widget is centred inside the
+  box the editor gives it, so any change in its own height slides the whole
+  thing. The lyric band is now a fixed number of **display-line slots** rather
+  than a number of lyric lines: a wrapped lyric takes two slots instead of
+  making its row taller, leftover slots are filled with a space so they still
+  occupy a line, and every slot uses one font — the current line is emphasised
+  by colour alone. The height is constant by construction, with no guesswork
+  about how tall a label is (that is not measurable from Lua).
+- **A crash on the first seconds of a track.** `activeLine()` returns 0 until
+  the playhead passes the first timestamp; the window used to be clamped by
+  `math.max(1, active - half)`, and that clamp went away with the rewrite, so
+  `lines[0]` was indexed and the widget died with
+  `attempt to index nil with 'text'` until the host disabled it. The index is
+  clamped, the per-line lookups are defensive, and the clamp is guarded.
+- **The empty band under the lyrics** — the middle band reserved the worst case
+  for `lines` rows (every row on two lines), which left a visible gap on any
+  track whose lines do not wrap. With the footprint fixed, that reserve is no
+  longer load-bearing, so `lines` now reads as a *minimum* and the window grows
+  outward from the current line until the next one would no longer fit.
+
 ## [0.9.7] — 2026-10-02
 
 A seekable progress bar, a pinned mini panel, and two display fixes: the seek
