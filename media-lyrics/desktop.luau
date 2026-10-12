@@ -269,11 +269,13 @@ local function render()
 
   -- lyrics window: the current line centred, `wantLines` lines total
   local lyricNodes = {}
+  local have = 0
   local hasLyrics = type(s.lyrics) == "table" and #s.lyrics > 0
   if hasLyrics then
     local active = activeLine(s)
     local n = #s.lyrics
     local half = math.floor((wantLines - 1) / 2)
+    have = 0   -- px actually taken by the rows we manage to render
     local from = math.max(1, active - half)
     local to = math.min(n, from + wantLines - 1)
     if to - from + 1 < wantLines then from = math.max(1, to - wantLines + 1) end
@@ -286,9 +288,22 @@ local function render()
       -- line neither runs off the edge nor changes the widget's size. Without the
       -- fixed height the box would grow and shrink from line to line.
       local fs = isActive and 14 or 12
+      local wrapped = wrapLyric(singleLine(line.text), fs, textW)
+      -- One line and two lines are 16px apart, so the block has to be padded back to
+      -- a fixed height; otherwise the host re-centres the whole tree and the header
+      -- and transport drift up and down. The padding is a single box BELOW the
+      -- lyrics, not an empty line under every row, so the visible lines stay tight.
+      have = have + ((wrapped:find("\n", 1, true) ~= nil) and (isActive and 36 or 32)
+                                                       or  (isActive and 18 or 16))
       lyricNodes[#lyricNodes + 1] = ui.label({ key = "lyr" .. i,
-        text = wrapLyric(singleLine(line.text), fs, textW), fontSize = fs,
-        color = color })
+        text = wrapped, fontSize = fs, color = color })
+    end
+    -- Pad the block to a constant height: wantLines rows, one of them the active
+    -- (14px) row. Short rows and the near-empty window at the start or end of a
+    -- track both show up here as slack, and it all collects in one place.
+    local slack = ((wantLines - 1) * 32 + 36) - have
+    if slack > 0 then
+      lyricNodes[#lyricNodes + 1] = ui.box({ key = "rowPad", height = slack })
     end
   elseif s.lyricsStatus == "loading" then
     lyricNodes[#lyricNodes + 1] = ui.label({ key = "l1", text = noctalia.tr("panel.loading-lyrics"),
@@ -318,6 +333,11 @@ local function render()
   -- opt-in, exactly like the built-in clock/weather widgets expose `background`.
   local rootProps = {
     key = "root", gap = 8, align = "start", minWidth = width,
+    -- The host centres the plugin's tree inside the fixed box, so a shorter lyric
+    -- block would move the header down and the transport up. flexGrow makes this
+    -- column fill the box instead, which is what lets the spacers below pin the
+    -- header to the top and the transport to the bottom.
+    flexGrow = 1,
   }
   if useBg then
     rootProps.fill = "surface_variant/0.85"
@@ -327,9 +347,16 @@ local function render()
     rootProps.borderWidth = 1
   end
 
+  -- The box size is fixed by the widget config, but the lyric block still changes
+  -- height as lines wrap or do not, and without help everything below it slides up
+  -- and down. Two flexible spacers swallow that slack: the header stays pinned to
+  -- the top, the transport to the bottom, and only the lyrics move a little, by
+  -- half of the change rather than all of it.
   desktopWidget.render(ui.column(rootProps, {
     header,
+    ui.box({ key = "slackTop", flexGrow = 1 }),
     ui.column({ key = "lyrics", gap = 3, align = "start", minWidth = width }, lyricNodes),
+    ui.box({ key = "slackBottom", flexGrow = 1 }),
     transport,
   }))
 end
