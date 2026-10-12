@@ -6,6 +6,10 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | --- | --- |
 | ![Media Lyrics panel (light)](screenshots/panel-light.png) | ![Media Lyrics panel (dark)](screenshots/panel-dark.png) |
 
+| Desktop widget |
+| --- |
+| ![Media Lyrics desktop widget](screenshots/desktop-widget.png) |
+
 ## Plugin
 
 | Field | Value |
