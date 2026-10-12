@@ -124,10 +124,16 @@ end
 -- the row only reserves room for two. Returns the input unchanged when it fits.
 local function wrapLyric(text, fontSize, maxW)
   local capEm = (maxW or 0) / (fontSize or 12)
-  if capEm <= 0 or unitEm(text) <= capEm then return text end
+  if capEm <= 0 then return text end
+  -- EVERY row is returned as exactly two display lines, a short one padded with a
+  -- trailing newline. The label ignores an explicit `height`, so a row of one line
+  -- would otherwise be ~16px shorter than a row of two and the whole widget would
+  -- grow and shrink as the lyrics change. Returning a constant number of lines is
+  -- what keeps the box still.
+  if unitEm(text) <= capEm then return text .. "\n" end
   local words = {}
   for w in (text .. " "):gmatch("(.-) ") do words[#words + 1] = w end
-  if #words < 2 then return truncEm(text, capEm) end
+  if #words < 2 then return truncEm(text, capEm) .. "\n" end
 
   local wEm, total = {}, 0
   for i = 1, #words do wEm[i] = unitEm(words[i]); total = total + wEm[i] end
@@ -280,7 +286,6 @@ local function render()
       local fs = isActive and 14 or 12
       lyricNodes[#lyricNodes + 1] = ui.label({ key = "lyr" .. i,
         text = wrapLyric(singleLine(line.text), fs, textW), fontSize = fs,
-        height = isActive and 36 or 31,
         color = color })
     end
   elseif s.lyricsStatus == "loading" then
