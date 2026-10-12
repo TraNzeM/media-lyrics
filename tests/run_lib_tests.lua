@@ -118,5 +118,21 @@ do
     .. (#offenders > 0 and ("\n      " .. table.concat(offenders, "\n      ")) or ""))
 end
 
+-- ── source guard: the active lyric index is clamped before it is used ──
+-- activeLine() returns 0 until the playhead passes the first timestamp, so feeding it
+-- straight into a window (lines[active]) indexes nil. That is what took the desktop
+-- widget down with "attempt to index nil with 'text'".
+do
+  local src = io.open("media-lyrics/desktop.luau")
+  local body = src and src:read("a") or ""
+  if src then src:close() end
+  local clamped = body:find("math.min(math.max(activeLine(s), 1), n)", 1, true) ~= nil
+  local raw = body:find("local active = activeLine(s)", 1, true) ~= nil
+  ok(clamped and not raw,
+    "desktop.luau clamps activeLine(s) into 1..n before indexing lyrics"
+    .. (not clamped and "\n      the clamp is missing" or "")
+    .. (raw and "\n      a raw `local active = activeLine(s)` is back" or ""))
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

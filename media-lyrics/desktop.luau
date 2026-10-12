@@ -304,16 +304,19 @@ local function render()
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
 
   if lines then
-    local active = activeLine(s)
+    -- activeLine returns 0 until the playhead passes the first timestamp, so clamp
+    -- before it is ever used as an index: the window below starts from the real row.
     local n = #lines
+    local active = math.min(math.max(activeLine(s), 1), n)
 
     -- Wrap each candidate line once and remember its display height: a row is two
     -- lines tall when its text had to wrap, and the active row's font is bigger.
     local cache, fsOf = {}, {}
     local function wrappedOf(i)
       if cache[i] == nil then
+        local ln = lines[i]
         fsOf[i] = (i == active) and ROW_H_ACTIVE_FS or ROW_H_FS
-        cache[i] = wrapLyric(singleLine(lines[i].text), fsOf[i], textW)
+        cache[i] = wrapLyric(singleLine(ln and ln.text or ""), fsOf[i], textW)
       end
       return cache[i], fsOf[i]
     end
