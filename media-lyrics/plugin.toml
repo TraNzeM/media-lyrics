@@ -209,7 +209,7 @@ entry = "widget.luau"
   description_key = "settings.audio_spectrum_bands.description"
   default = 8
   min = 1
-  max = 128
+  max = 64
   visible_when = { key = "audio_spectrum", values = ["true"] }
 
 # Desktop widget: the same now-playing/lyrics view as a background layer-shell

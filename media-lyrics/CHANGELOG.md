@@ -21,7 +21,7 @@ chip, tooltips, and the fixes that came out of running the widget live.
   `width`, `height`, `padding`, `background`, `show_artist`, `show_cover`.
   Available at `plugin_api 20`, so no API bump was needed.
 - **Audio-reactive chip** — two bar-widget settings, `audio_spectrum` and
-  `audio_spectrum_bands` (1–128), make the chip draw a live band meter from the
+  `audio_spectrum_bands` (1–64), make the chip draw a live band meter from the
   host's PipeWire monitor. Both are plain host settings read by the host
   itself; the plugin only receives the values through `onAudioSpectrum()`.
   Off by default.
@@ -46,6 +46,15 @@ chip, tooltips, and the fixes that came out of running the widget live.
   the transport row by the buttons — so the lyric band below is unchanged.
 
 ### Fixed
+
+- **The spectrum meter stopped at 24 bands.** The cap was the plugin's own
+  (`math.min(bands, values, 24)`), not the host's: Noctalia reconfigures its analysis
+  around whatever count a plugin asks for (`m_analysisBandCount` = the largest request
+  across listeners) and clamps requests only at `4096 / 2` FFT bins. The cap is gone,
+  `audio_spectrum_bands` now offers 1–64, and the bars thin to 1 px above 16 bands so a
+  large count still fits in the chip. The host also validates the stored value against
+  the manifest — a value above the declared maximum is clamped and logged as
+  `above maximum N`, so the declared range has to match what the code accepts.
 
 - **Every `r`, `n` and `t` disappeared from Latin lyrics.** The widget's
   single-line sanitiser used `[%r%n%t]+`, but in this pattern dialect `%r`, `%n`

@@ -39,11 +39,11 @@
       "label": "Artist first"
     },
     "audio_spectrum": {
-      "description": "Draw a live audio band meter in the chip (audio-reactive). The host feeds the PipeWire monitor spectrum to the widget; nothing extra is installed.",
+      "description": "Draw a live audio band meter in the chip.",
       "label": "Audio spectrum"
     },
     "audio_spectrum_bands": {
-      "description": "How many bands the meter draws (1–128; the panel width usually fits about 8–24).",
+      "description": "Number of spectrum bands, 1-64.",
       "label": "Spectrum bands"
     },
     "desktop_background": {
@@ -51,7 +51,7 @@
       "label": "Background"
     },
     "desktop_lines": {
-      "description": "How many lyric lines the desktop widget shows (the current line is highlighted).",
+      "description": "Minimum lyric lines in the desktop widget; short tracks fill more.",
       "label": "Lyric lines"
     },
     "desktop_show_artist": {

@@ -98,7 +98,7 @@ Display options are edited in the widget's own settings popup (middle click):
 | `hide_when_no_media` | off | Hide the chip when no MPRIS player is active |
 | `show_lyric_line` | off | Show `Title · current line` in the chip instead of `Title - Artist` while synced lyrics are ready (long lines scroll with the marquee; falls back to the artist line otherwise) |
 | `audio_spectrum` | off | Draw a live audio spectrum next to the chip, fed by the host from the PipeWire monitor |
-| `audio_spectrum_bands` | 8 | Number of spectrum bands, 1–128 |
+| `audio_spectrum_bands` | 8 | Number of spectrum bands, 1–64 (1 px bars above 16) |
 
 A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 

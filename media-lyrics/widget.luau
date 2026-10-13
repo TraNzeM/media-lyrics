@@ -229,10 +229,14 @@ end
 local function spectrumNode(o)
   local vals = spectrumValues
   if not o.spectrum or type(vals) ~= "table" or #vals == 0 then return nil end
-  local want = math.min(o.spectrumBands, #vals, 24)
+  -- The host adapts its analysis to the count we ask for (pipewire_spectrum.cpp reuses
+  -- the largest listener request), so cap by width, not by band count: thin the bars.
+  local want = math.min(o.spectrumBands, #vals)
+  local barW = want <= 16 and 2 or 1
   local maxH = math.max(8, o.artSize)
   local bars = {}
-  -- average adjacent bands down to `want` so a large band count still fits
+  -- average adjacent bands down to `want`, so asking for fewer than the host sends
+  -- still uses every value the host gave us
   local step = #vals / want
   for i = 1, want do
     local sum, cnt = 0, 0
@@ -246,7 +250,7 @@ local function spectrumNode(o)
     local level = cnt > 0 and (sum / cnt) or 0
     local h = math.max(2, math.floor(level * maxH + 2))
     bars[#bars + 1] = ui.box({
-      key = "sp" .. i, width = 2, height = h, radius = 1,
+      key = "sp" .. i, width = barW, height = h, radius = 1,
       fill = spectrumActive and "primary" or "outline",
       opacity = spectrumActive and 1 or 0.5,
     })
