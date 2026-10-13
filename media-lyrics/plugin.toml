@@ -14,9 +14,9 @@ version = "0.9.8"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
-tags = ["media", "music", "panel", "service", "desktop-widget"]
+tags = ["media", "music", "panel", "service", "desktop"]
 icon = "music"
-description = "Synced lyrics media panel and desktop widget: karaoke carousel, seekable progress, marquee titles, audio-reactive chip. Pure Luau; runtime needs busctl + curl."
+description = "Synced lyrics panel and desktop widget: karaoke carousel, seekable progress, audio-reactive chip. Needs busctl + curl."
 dependencies = ["busctl", "curl"]
 
 [[setting]]
