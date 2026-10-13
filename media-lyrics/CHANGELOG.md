@@ -4,85 +4,37 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.8] — 2026-10-12
+## [0.9.8] — 2026-10-13
 
-A **desktop widget** — the now-playing view as a tile pinned to the desktop and
-shown on the lockscreen, independent of any panel — plus an audio-reactive bar
-chip, tooltips, and the fixes that came out of running the widget live.
+A **desktop widget** — the now-playing view as a tile pinned to the desktop and shown on
+the lockscreen, independent of any panel — an **audio-reactive bar chip**, and tooltips.
 
 ### Added
 
-- **Desktop widget** (`[[desktop_widget]] id = "desktop"`) — the same
-  now-playing / lyrics view as a background layer-shell tile: album cover,
-  title, artist, position, the lyric window and the transport controls, pinned
-  to the desktop and visible on the lockscreen. This is what the "pin to
-  desktop" roadmap item actually needed: a *persistent* panel still disappears
-  when no panel surface is up, a desktop widget does not. Settings: `lines`,
-  `width`, `height`, `padding`, `background`, `show_artist`, `show_cover`.
+- **Desktop widget** (`[[desktop_widget]] id = "desktop"`) — the same now-playing /
+  lyrics view as a background layer-shell tile: album cover, title, artist, the lyric
+  window and the transport controls, pinned to the desktop and visible on the lockscreen.
+  A *persistent* panel still disappears once no panel surface is up; a desktop widget
+  does not, which is what "pin it to the desktop" actually needed. Long lyric lines wrap
+  inside the tile, the lyric band keeps a constant height whatever the track does, and
+  the tile is borderless by default, like the built-in desktop widgets. Settings:
+  `lines`, `width`, `height`, `padding`, `background`, `show_artist`, `show_cover`.
   Available at `plugin_api 20`, so no API bump was needed.
-- **Audio-reactive chip** — two bar-widget settings, `audio_spectrum` and
-  `audio_spectrum_bands` (1–64), make the chip draw a live band meter from the
-  host's PipeWire monitor. Both are plain host settings read by the host
-  itself; the plugin only receives the values through `onAudioSpectrum()`.
-  Off by default.
-- **Tooltips** — the transport buttons and the lyric rows now carry tooltips
-  (the lyric rows show their `Seek to` timestamp).
+- **Audio-reactive chip** — the bar-widget settings `audio_spectrum` and
+  `audio_spectrum_bands` make the chip draw a live band meter fed by the host from the
+  PipeWire monitor. Off by default; 1–64 bands, the bars thinning to 1 px above 16 so a
+  high count still fits in the chip.
+- **Tooltips** on the transport controls and on the lyric rows, where a row shows the
+  timestamp it seeks to.
+- **A written report** of the Noctalia 5.2 capability work — `docs/reports/noctalia-52-report.html` —
+  with the measurements, diagrams and screenshots behind the desktop widget, the chip and
+  the tooltips, and what the host does and does not allow.
 
 ### Changed
 
-- **Long lyric lines wrap** instead of running off the edge. The host does not
-  wrap a label on its own, so the widget breaks the string itself: the width is
-  measured in em (a per-character advance table, Cyrillic and emoji at 1 em) and
-  the break is taken at the word boundary nearest the middle, so the two halves
-  look balanced.
-- **The release is documented** — `docs/reports/noctalia-52-report.html` walks
-  through the Noctalia 5.2 capability work with diagrams, measurements and
-  screenshots, including the dead ends.
-
-- **The desktop widget's header is text only.** The play/pause glyph that sat beside
-  the track time repeated the transport button two lines below it, and the time reads
-  better opposite those buttons: it now ends the transport row, pushed to the right.
-  Both bands are held at the same height either way — the header by the 56 px cover,
-  the transport row by the buttons — so the lyric band below is unchanged.
-
-### Fixed
-
-- **The spectrum meter stopped at 24 bands.** The cap was the plugin's own
-  (`math.min(bands, values, 24)`), not the host's: Noctalia reconfigures its analysis
-  around whatever count a plugin asks for (`m_analysisBandCount` = the largest request
-  across listeners) and clamps requests only at `4096 / 2` FFT bins. The cap is gone,
-  `audio_spectrum_bands` now offers 1–64, and the bars thin to 1 px above 16 bands so a
-  large count still fits in the chip. The host also validates the stored value against
-  the manifest — a value above the declared maximum is clamped and logged as
-  `above maximum N`, so the declared range has to match what the code accepts.
-
-- **Every `r`, `n` and `t` disappeared from Latin lyrics.** The widget's
-  single-line sanitiser used `[%r%n%t]+`, but in this pattern dialect `%r`, `%n`
-  and `%t` are **not** character classes — they degrade to the literal letters
-  r, n and t, so the class matched `[rnt]` and `gsub` ate every run. "The
-  Chemical Brothers" rendered as "The Chemical B o he s". Cyrillic has no Latin
-  r/n/t, which is exactly why the bug hid on the lines that were tested by hand;
-  `panel.luau` had always used real escapes. Fixed to `[\r\n\t]+`, with a
-  regression guard that fails on the old spelling.
-- **The widget resized as the lyrics changed.** The widget is centred inside the
-  box the editor gives it, so any change in its own height slides the whole
-  thing. The lyric band is now a fixed number of **display-line slots** rather
-  than a number of lyric lines: a wrapped lyric takes two slots instead of
-  making its row taller, leftover slots are filled with a space so they still
-  occupy a line, and every slot uses one font — the current line is emphasised
-  by colour alone. The height is constant by construction, with no guesswork
-  about how tall a label is (that is not measurable from Lua).
-- **A crash on the first seconds of a track.** `activeLine()` returns 0 until
-  the playhead passes the first timestamp; the window used to be clamped by
-  `math.max(1, active - half)`, and that clamp went away with the rewrite, so
-  `lines[0]` was indexed and the widget died with
-  `attempt to index nil with 'text'` until the host disabled it. The index is
-  clamped, the per-line lookups are defensive, and the clamp is guarded.
-- **The empty band under the lyrics** — the middle band reserved the worst case
-  for `lines` rows (every row on two lines), which left a visible gap on any
-  track whose lines do not wrap. With the footprint fixed, that reserve is no
-  longer load-bearing, so `lines` now reads as a *minimum* and the window grows
-  outward from the current line until the next one would no longer fit.
+- **`lines` on the desktop widget is a minimum, not a cap.** The band reserves the worst
+  case for that many rows and fills whatever is left with more lyrics, so a track whose
+  lines do not wrap shows more of them instead of leaving a gap above the transport.
 
 ## [0.9.7] — 2026-10-02
 
