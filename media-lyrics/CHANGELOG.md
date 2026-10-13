@@ -39,6 +39,12 @@ chip, tooltips, and the fixes that came out of running the widget live.
   through the Noctalia 5.2 capability work with diagrams, measurements and
   screenshots, including the dead ends.
 
+- **The desktop widget's header is text only.** The play/pause glyph that sat beside
+  the track time repeated the transport button two lines below it, and the time reads
+  better opposite those buttons: it now ends the transport row, pushed to the right.
+  Both bands are held at the same height either way — the header by the 56 px cover,
+  the transport row by the buttons — so the lyric band below is unchanged.
+
 ### Fixed
 
 - **Every `r`, `n` and `t` disappeared from Latin lyrics.** The widget's

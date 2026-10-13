@@ -287,11 +287,6 @@ local function render()
     infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, textW, 12),
       fontSize = 12, color = "on_surface_variant" })
   end
-  infoKids[#infoKids + 1] = ui.row({ key = "time", gap = 6, align = "center" }, {
-    ui.glyph({ name = s.playing and "player-pause" or "player-play", size = 11, color = "primary" }),
-    ui.label({ text = fmtTime(interpPos(s)) .. " / " .. fmtTime(s.lengthSec),
-      fontSize = 11, color = "on_surface_variant" }),
-  })
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
 
@@ -364,7 +359,12 @@ local function render()
 
   -- ── band 3: transport ──────────────────────────────────────────────────────
   -- Always present, disabled rather than removed, so the band never changes size.
-  local transport = ui.row({ key = "transport", gap = 4, align = "center", justify = "start" }, {
+  -- The time sits opposite the transport controls. The spacer only pushes anything
+  -- if the row is wider than its buttons, so the row is given the same width budget as
+  -- the rest of the content — as a minimum, which is all the host honours on a column
+  -- anyway.
+  local transport = ui.row({ key = "transport", gap = 4, align = "center",
+                             minWidth = textW }, {
     ui.button({ glyph = "player-skip-back", glyphSize = 14, variant = "ghost", controlSize = "sm",
       enabled = s.canGoPrev == true, onClick = function() sendCmd("prev") end,
       tooltip = "Previous track" }),
@@ -375,6 +375,9 @@ local function render()
     ui.button({ glyph = "player-skip-forward", glyphSize = 14, variant = "ghost", controlSize = "sm",
       enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
+    ui.box({ key = "transportSlack", flexGrow = 1 }),
+    ui.label({ key = "time", text = fmtTime(interpPos(s)) .. " / " .. fmtTime(s.lengthSec),
+      fontSize = 11, color = "on_surface_variant" }),
   })
 
   -- Match the built-in desktop widgets: no card, no border, no divider by default —
