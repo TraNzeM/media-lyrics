@@ -6,9 +6,17 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | --- | --- |
 | ![Media Lyrics panel (light)](screenshots/panel-light.png) | ![Media Lyrics panel (dark)](screenshots/panel-dark.png) |
 
-| Desktop widget |
+| Centred karaoke with the 3-2-1 countdown | Desktop widget |
+| --- | --- |
+| ![Media Lyrics panel with the countdown](screenshots/panel-countdown.png) | ![Media Lyrics desktop widget](screenshots/desktop-widget.png) |
+
+| Adding the desktop widget |
 | --- |
-| ![Media Lyrics desktop widget](screenshots/desktop-widget.png) |
+| ![Adding the desktop widget in the editor](screenshots/desktop-widget-editor.png) |
+
+The audio-reactive chip, its spectrum driven by the host:
+
+![Audio spectrum in the bar chip](screenshots/audio-spectrum.png)
 
 ## Plugin
 
