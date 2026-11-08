@@ -17,6 +17,13 @@ Two reports from the field, both acted on. (Thank you, @junevin1-png.)
   location sits inside `pluginDataDir()` where nobody would think to look. The
   folder is now created on the first successful save.
 
+### Changed
+
+- **`plugin_api` is declared as 32, not 30.** The plugin has used tooltips (API
+  level 32) since 0.9.8 while claiming 30, so on an older shell the tooltips
+  simply vanished with no clue why. The declared level is now the level the
+  plugin really needs.
+
 ### Added
 
 - **`source_order`** — which online provider is asked first. Default
