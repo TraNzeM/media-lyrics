@@ -108,7 +108,7 @@ ok(lib.charCount("héllo") == 5, "charCount: utf8 count")
 -- escapes ([%c] or [\r\n\t]) instead.
 do
   local offenders = {}
-  local pipe = io.popen("grep -rnE '\\[[^]]*%[rnt][^]]*\\]' media-lyrics/*.luau 2>/dev/null")
+  local pipe = io.popen("grep -rnE '\\[[^]]*%[rnt][^]]*\\]' '" .. dir .. "/../media-lyrics/*.luau' 2>/dev/null")
   if pipe then
     for line in pipe:lines() do offenders[#offenders + 1] = line end
     pipe:close()
@@ -123,7 +123,7 @@ end
 -- straight into a window (lines[active]) indexes nil. That is what took the desktop
 -- widget down with "attempt to index nil with 'text'".
 do
-  local src = io.open("media-lyrics/desktop.luau")
+  local src = io.open(dir .. "/../media-lyrics/desktop.luau")
   local body = src and src:read("a") or ""
   if src then src:close() end
   local clamped = body:find("math.min(math.max(activeLine(s), 1), n)", 1, true) ~= nil
@@ -140,7 +140,7 @@ end
 -- the lyrics arrive. A label's real height cannot be measured from Lua, so the band must
 -- not depend on how many lines there are, on wrapping, or on a guessed row height.
 do
-  local f = io.open("media-lyrics/desktop.luau")
+  local f = io.open(dir .. "/../media-lyrics/desktop.luau")
   local body = f and f:read("a") or ""
   if f then f:close() end
   local slots = body:find("math.max(1, math.floor((midH + 3) / (ROW_H + 3)))", 1, true) ~= nil
@@ -152,6 +152,38 @@ do
     .. (not slots and "\n      the fixed slot count is gone" or "")
     .. (slack and "\n      a content-sized slack box is back: the height would drift" or "")
     .. (perRowFont and "\n      a bigger font on the current line makes its slot taller" or ""))
+end
+
+-- ── cache paths ────────────────────────────────────────────────────────────
+-- The cache writes into a `lyrics/` subfolder of the plugin data dir and the
+-- host does not create parents on write, so the plan must expose the folder
+-- for the writer to create it first.
+do
+  local p = lib.cachePaths("/data", "AC/DC", "Hells Bells")
+  ok(p and p.dir == "/data/lyrics", "cachePaths names the folder to create")
+  ok(p and p.file == "/data/lyrics/AC_DC__Hells Bells.lrc",
+    "cachePaths builds the file inside that folder")
+  ok(lib.cachePaths("", "a", "b") == nil, "cachePaths refuses an empty data dir")
+  ok(lib.cachePaths(nil, "a", "b") == nil, "cachePaths refuses a missing data dir")
+end
+
+-- ── source order ───────────────────────────────────────────────────────────
+-- The user picks which online provider is asked first (issue #1: NetEase
+-- first for a Chinese library). A partial list must never lose a provider.
+do
+  local d = lib.sourceOrder("")
+  ok(d[1] == "lrclib" and d[2] == "netease" and #d == 2,
+    "sourceOrder defaults to lrclib then netease")
+  local n = lib.sourceOrder("netease, lrclib")
+  ok(n[1] == "netease" and n[2] == "lrclib", "sourceOrder honours the configured order")
+  local junk = lib.sourceOrder("bogus,NETEASE")
+  ok(junk[1] == "netease" and junk[2] == "lrclib",
+    "sourceOrder drops unknown ids and is case-insensitive")
+  local partial = lib.sourceOrder("netease")
+  ok(partial[1] == "netease" and partial[2] == "lrclib",
+    "sourceOrder appends an omitted provider instead of losing it")
+  local dup = lib.sourceOrder("netease, netease, lrclib")
+  ok(#dup == 2 and dup[1] == "netease", "sourceOrder ignores repeats")
 end
 
 print(string.format("\n%d passed, %d failed", passed, failed))

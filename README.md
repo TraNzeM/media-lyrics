@@ -48,6 +48,8 @@ and fetches lyrics from LRCLIB in pure Luau.
   lockscreen, independent of any panel
 - 📊 **Audio-reactive chip** — optional live spectrum in the bar widget
 - 📦 **Zero dependencies** — pure Luau, works with any MPRIS player
+- 🎯 **Your provider, your order** — `source_order` decides whether LRCLIB or
+  NetEase is asked first, so a library that lives on one service finds its text first.
 - 💾 **Offline-friendly** — LRCLIB cache + local `.lrc` files with priority
 - 🌐 **Translatable** — every string goes through Noctalia's i18n (English ships in the plugin; other locales via Noctalia Translate), plus timing offset & cache settings
 

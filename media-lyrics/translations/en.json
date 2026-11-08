@@ -125,6 +125,10 @@
         "on_hover": "On hover"
       }
     },
+    "source_order": {
+      "description": "Which online lyric provider to ask first. Comma separated, e.g. \"netease, lrclib\". A provider left out keeps its default place at the end.",
+      "label": "Lyrics source order"
+    },
     "use_cache": {
       "description": "Store fetched lyrics in the plugin data directory for offline reuse.",
       "label": "Cache lyrics"
