@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Обновление окружения и анализ Noctalia 5.3.0 → 5.4.1</title>
+<style>
+body{font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1080px;margin:2rem auto;padding:0 1rem;color:#222}
+h1{font-size:1.8rem;border-bottom:3px solid #4a6cf7;padding-bottom:.4rem}
+h2{font-size:1.35rem;margin-top:2.4rem;color:#4a6cf7}
+h3{font-size:1.1rem;margin-top:1.6rem}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+th,td{border:1px solid #d5dbe5;padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{background:#f2f5fa}
+code{background:#eef1f7;padding:.1rem .3rem;border-radius:3px;font-size:.88em}
+.yes{color:#0a7a3d;font-weight:600}.no{color:#a33}.star{color:#c77c00;font-weight:700}
+.note{background:#fff8e1;border-left:4px solid #f0b429;padding:.8rem 1rem;margin:1rem 0}
+.must{background:#fdecea;border-left:4px solid #d64545;padding:.8rem 1rem;margin:1rem 0}
+.timeline{display:flex;gap:.4rem;margin:1rem 0;flex-wrap:wrap}
+.timeline div{flex:1;min-width:130px;background:#eef1f7;border-radius:6px;padding:.5rem;font-size:.8rem}
+.timeline b{display:block;font-size:.85rem}
+</style>
+</head>
+<body>
+
+<h1>Обновление окружения и анализ Noctalia 5.3.0 → 5.4.1</h1>
+<p>ВМ: Fedora 44 (UTM, aarch64), compositor <code>niri</code>, оболочка <code>Noctalia</code>. Дата: 2026-11-09.</p>
+
+<h2>1. Что обновлено</h2>
+<table>
+<tr><th>Компонент</th><th>Было</th><th>Стало</th><th>Комментарий</th></tr>
+<tr><td>Fedora 44</td><td>—</td><td>пакеты обновлены, <b>0 осталось</b></td><td>ядро 7.2.15, firefox 159.0.1, ffmpeg-free 8.1.3, dnf5 5.4.7</td></tr>
+<tr><td><b>niri</b> (WM)</td><td>26.04</td><td><b>26.04</b></td><td>у разработчика тоже 26.04 (вышла 25 апреля) — <b>это и есть последняя</b>, обновлять нечего</td></tr>
+<tr><td><b>Noctalia</b></td><td>5.2.0 → 5.2.1</td><td><b>5.4.1</b></td><td>за один заход закрыты три релиза: 5.3.0, 5.4.0, 5.4.1</td></tr>
+<tr><td>noctalia-greeter</td><td>1.6.0</td><td>1.7.0^8</td><td>COPR (nightly)</td></tr>
+<tr><td>Ядро</td><td>7.2.9 в работе</td><td>7.2.15 на диске</td><td>применится при следующей загрузке</td></tr>
+</table>
+
+<div class="note"><b>Плагин проверен на новой оболочке:</b> <code>noctalia plugins lint</code> — 0 ошибок, 0 предупреждений; тесты — 27 пройдено, 0 падений.</div>
+
+<h2>2. Релизы разработчика</h2>
+<div class="timeline">
+<div><b>5.2.1</b> 02.10</div>
+<div><b>5.3.0</b> 15.10 — лаунчер, тултипы на всю панель, скрытие media при простое, артворки и визуализатор на десктоп-плеере</div>
+<div><b>5.4.0</b> 26.10 — новые цветовые роли, <b>wave-режим визуализаторов</b>, переименование ролей</div>
+<div><b>5.4.1</b> 29.10 — табличные цифры в часах, <b>засечки у <code>ui.progress</code></b>, блюр дока</div>
+</div>
+
+<h3>Проекты разработчика</h3>
+<p><code>noctalia</code> (C++ оболочка, ★11.9k), <code>official-plugins</code>, <code>community-plugins</code> (наш стор),
+<code>noctalia-docs</code>, <code>noctalia-qs</code> (тулкит для своих оболочек), <code>noctalia-cli</code> (установщик),
+<code>community-palettes</code>, <code>tabler-icons</code>, <code>noctalia-discord-bot</code>.</p>
+
+<h2>3. Новые уровни plugin API: 33 → 51</h2>
+<p>Машиночитаемая спецификация <code>docs/plugin-api.json</code> выросла с 30 до 49 записей. Каждый уровень — это одна новая возможность, под которую плагин объявляет <code>plugin_api</code>.</p>
+<table>
+<tr><th>Уровень</th><th>Возможность</th><th>Что даёт</th><th>Полезно нам</th></tr>
+<tr><td>33</td><td><code>ui.scroll</code> + <code>revealKey</code></td><td>доводит дочерний элемент в видимую область ровно настолько, чтобы показать целиком</td><td class="star">★ автоскролл списка текста</td></tr>
+<tr><td>34</td><td><code>hover_highlight</code></td><td>отказ от подсветки всего виджета при наведении</td><td class="star">★ полировка бара</td></tr>
+<tr><td>35</td><td><code>noctalia.idle.watch / unwatch</code></td><td>уведомления композитора о простое</td><td class="star">★ гасить виджет при простое</td></tr>
+<tr><td>36</td><td><code>[[layer]]</code>, <code>layer.*</code>, <code>noctalia.layer.show/hide/configure</code></td><td><b>свои</b> layer-shell поверхности от плагина</td><td class="star">★★ караоке поверх всего</td></tr>
+<tr><td>37</td><td><code>noctalia.calendarEvents()</code></td><td>события календаря оболочки</td><td class="no">—</td></tr>
+<tr><td>38</td><td>drag-and-drop в bar-виджетах</td><td><code>ui.dragSource/dropZone</code> в <code>barWidget.render</code></td><td class="no">—</td></tr>
+<tr><td>39</td><td><code>noctalia.osd.show(icon, value, opts)</code></td><td>показать системный OSD из плагина</td><td class="star">★ позиция при перемотке</td></tr>
+<tr><td>40</td><td><code>ui.pixelStream</code></td><td>кадры из компаньон-процесса через общий сокет</td><td class="star">★★ превью видео (когда-нибудь)</td></tr>
+<tr><td>41</td><td><code>ui.colorPicker</code></td><td>инлайновый выбор цвета в настройках</td><td class="star">★ цвет караоке</td></tr>
+<tr><td>42</td><td><code>height = "content"</code>, <code>max_height</code></td><td>панель подстраивается под высоту отрисованного дерева</td><td class="star">★ наша панель</td></tr>
+<tr><td>43</td><td>контейнерные цветовые роли</td><td><code>primary_container</code>, <code>surface_container_*</code>, <code>outline_variant</code>, <code>scrim</code>; <b><code>surface_variant</code> и <code>outline</code> выведены</b></td><td class="star">★★ миграция обязательна</td></tr>
+<tr><td>44</td><td>palette-format-2</td><td>новый формат палитры</td><td class="no">—</td></tr>
+<tr><td>45</td><td><code>noctalia.umbriel.action</code></td><td>IPC к Umbriel без запуска CLI</td><td class="no">—</td></tr>
+<tr><td>46</td><td><code>noctalia.setGpuMonitoring()</code></td><td>явное включение GPU-сэмплинга</td><td class="no">—</td></tr>
+<tr><td>47</td><td><code>secret = true</code></td><td>оболочка хранит секрет-настройки как креды</td><td class="star">★ если добавим онлайн-провайдеры</td></tr>
+<tr><td>48</td><td><code>onSuspend()</code> / <code>onResume()</code></td><td>реакция сервиса на засыпание и пробуждение</td><td class="star">★ пауза фонового опроса</td></tr>
+<tr><td>49</td><td><code>layer = "follow"</code></td><td>слой панели следует настройке оболочки</td><td class="star">★★ вместо жёсткого overlay</td></tr>
+<tr><td>50</td><td><code>fit</code> у <code>ui.pixelStream</code></td><td>contain / cover / stretch</td><td class="no">—</td></tr>
+<tr><td>51</td><td><code>noctalia.mediaPlayer()</code>, <code>ui.fillLabel</code></td><td><b>активный MPRIS-плеер</b> и <b>прогрессивная заливка текста</b></td><td class="star">★★★ караоке по словам</td></tr>
+</table>
+
+<h2>4. Стратегическая находка: официальный плагин <code>lyrics</code></h2>
+<p>5 ноября в <code>official-plugins</code> появился <b>noctalia/lyrics 1.1.0</b> — прямой сосед нашему media-lyrics. Объявляет <code>plugin_api = 51</code>.</p>
+<p>Как он устроен: <code>service</code> следует за активным MPRIS-плеером, ищет текст (сначала sidecar <code>.lrc</code>, потом онлайн-провайдеры), кэширует и отдаёт всем своим десктоп-виджетам через <i>plugin state</i>, чтобы виджеты не повторяли поиск. Виджет держит активную строку в центре и <b>заливает её по словам</b> через <code>ui.fillLabel</code>.</p>
+
+<h3>Сравнение с нашим</h3>
+<table>
+<tr><th>Возможность</th><th>media-lyrics (наш)</th><th>noctalia/lyrics (официальный)</th></tr>
+<tr><td>Панель «сейчас играет» + караоке</td><td class="yes">✅ есть</td><td class="no">❌ только десктоп</td></tr>
+<tr><td>Перемотка, транспорт, клик по полосе</td><td class="yes">✅ есть</td><td class="no">❌ нет</td></tr>
+<tr><td>Аудио-чип со спектром (1–64 полосы)</td><td class="yes">✅ есть</td><td class="no">❌ нет</td></tr>
+<tr><td>Тултипы, обратный отсчёт</td><td class="yes">✅ есть</td><td class="no">❌ нет</td></tr>
+<tr><td>Перенос длинных строк</td><td class="yes">✅ есть</td><td class="no">❌ многоточие</td></tr>
+<tr><td>Смещения по трекам</td><td class="yes">✅ есть</td><td class="yes">✅ есть</td></tr>
+<tr><td><b>Подсветка</b></td><td>по строкам</td><td class="star"><b>по словам</b> ✨</td></tr>
+<tr><td>Онлайн-провайдеры + кэш</td><td class="no">❌ локальные .lrc</td><td class="yes">✅ есть</td></tr>
+<tr><td>Локализация интерфейса</td><td class="yes">✅</td><td class="yes">✅</td></tr>
+</table>
+
+<div class="note"><b>Вывод.</b> Плагины скорее дополняют друг друга, чем конкурируют: мы — <b>плеер</b> (панель, перемотка, транспорт, спектр), они — <b>дисплей текста</b>. Но их визуал сейчас выше — построчная заливка выглядит заметно живее. Разумный ответ: взять их главный приём (<code>ui.fillLabel</code>), не теряя своих сильных сторон.</div>
+
+<h2>5. План улучшений нашего плагина</h2>
+
+<div class="must"><b>Обязательно — сейчас это устарело или неверно:</b>
+<ol>
+<li><b>Миграция цветовых ролей.</b> 5.4.0 вывела ровно два имени: <code>surface_variant → surface_container</code> и <code>outline → outline_variant</code>. В коде им соответствуют <b>6</b> и <b>1</b> обращение — их переименовываем однозначно. Ещё <b>14</b> обращений идут к <code>on_surface_variant</code>, и тут важная деталь: <b>этого имени в списке переименований нет</b> — сам релиз называет только две пары. Поэтому вслепую их не трогаем: сверяемся с живой палитрой 5.4.1 и оставляем как есть, если роль уцелела, либо переименовываем, если появилась парная <code>on_surface_container</code>. Сомнение фиксирую здесь, чтобы не потерять.</li>
+<li><b><code>plugin_api = 30 → 32</code>.</b> Мы применяем тултипы, а это уровень 32 (container-tooltip). Заявленный 30 — занижение: на старой оболочке тултипы просто молча не появятся.</li>
+</ol></div>
+
+<h3>Стоит сделать — большой выигрыш</h3>
+<ol start="3">
+<li><b><code>ui.fillLabel</code> — караоке по словам.</b> Уровень 51 (пока в nightly). Детектировать фичу в рантайме, как уже делаем с <code>getColor</code>, и откатываться на текущий построчный рендеринг. Это прямой ответ на официальный плагин.</li>
+<li><b><code>noctalia.mediaPlayer()</code> — убрать ручной MPRIS-опрос.</b> Оболочка сама отдаёт активный плеер. Упрощает код и убирает целый слой ошибок.</li>
+<li><b><code>layer = "follow"</code></b> (уровень 49) вместо жёсткого <code>"overlay"</code>: панель сама следует настройке оболочки, и вопрос со слоями, из-за которого мы едва не потеряли релиз в сторе, закрывается навсегда.</li>
+<li><b>Засечки на полосе перемотки</b> — <code>marker</code> и <code>markerColor</code> у <code>ui.progress</code> (появились в 5.4.1): показать, где следующая смена строки.</li>
+</ol>
+
+<h3>Можно — полировка</h3>
+<ol start="7">
+<li><code>revealKey</code> — автоскролл длинного списка текста.</li>
+<li><code>noctalia.idle.watch</code> — приглушать виджет при простое.</li>
+<li><code>noctalia.osd.show()</code> — OSD с позицией при перемотке.</li>
+<li><code>ui.colorPicker</code> — цвет подсветки караоке в настройках.</li>
+<li><code>hover_highlight = false</code> — снять подсветку со всего виджета бара.</li>
+<li><code>onSuspend / onResume</code> — ставить фоновый опрос на паузу во сне.</li>
+<li><code>height = "content"</code> — панель по высоте контента.</li>
+</ol>
+
+<h2>6. Риски и сомнения</h2>
+<ul>
+<li><b>Уровни 44–51 вышли за пределы 5.4.1</b> (сейчас в dev-сборке, официальный lyrics уже на них завязан). Значит, лучшие фичи доступны не всем пользователям — поэтому детектировать в рантайме, а не поднимать <code>plugin_api</code> до 51 и не отрезать тех, кто на 5.2–5.4.</li>
+<li><b>Сложность подсветки по словам.</b> Нужен разбор enhanced-LRC (метки времени у слов) и новый рендеринг строки. Оценка: средняя задача, но затрагивает сердцевину караоке — делать осторожно, с тестами.</li>
+<li><b>Онлайн-провайдеры</b> (как у официального) — это сетевой код, кэш и возможные ключи (<code>secret = true</code> помогает). Ставлю ниже визуала: наш приоритет — плеер, а не поиск текста.</li>
+<li><b>Сомнение:</b> стоит ли вообще догонять визуал, если официальный плагин уже делает караоке? Моё мнение — да: у нас панель и перемотка, и с <code>ui.fillLabel</code> мы останемся строго функциональнее.</li>
+</ul>
+
+<p style="margin-top:2.5rem;color:#888;font-size:.85rem">Собрано по <code>docs/plugin-api.json</code> (5.2.1 / 5.4.1 / main), релизам v5.3.0–v5.4.1, исходникам official-plugins и community-plugins. Плагин проверен на живой ВМ с Noctalia 5.4.1.</p>
+
+</body>
+</html>
