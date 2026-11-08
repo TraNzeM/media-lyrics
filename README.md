@@ -48,6 +48,9 @@ and fetches lyrics from LRCLIB in pure Luau.
   lockscreen, independent of any panel
 - 📊 **Audio-reactive chip** — optional live spectrum in the bar widget
 - 📦 **Zero dependencies** — pure Luau, works with any MPRIS player
+- 🎯 **Word-by-word karaoke** — the highlight sweeps the current line one word at a time
+  when the lyrics carry word timestamps (enhanced LRC), and evenly across the line when
+  they do not. Wrapped lines sweep row by row.
 - 🎯 **Your provider, your order** — `source_order` decides whether LRCLIB or
   NetEase is asked first, so a library that lives on one service finds its text first.
 - 💾 **Offline-friendly** — LRCLIB cache + local `.lrc` files with priority

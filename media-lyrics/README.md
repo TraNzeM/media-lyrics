@@ -118,6 +118,13 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Features
 
+- **Word-by-word karaoke** — the highlight sweeps the current line one word at a time
+  when the lyrics carry word timestamps (enhanced LRC: `<00:12.00>word` markers inside
+  the line, stripped from the displayed text). Without those markers the sweep is even
+  across the line, which is all the line timestamps can honestly support. Long lines
+  wrap and the sweep follows each wrapped row. Needs a shell with `ui.fillLabel`
+  (plugin_api 51); on older shells the current line is simply shown in the accent colour.
+
 - **Karaoke lyric carousel** — 9/12/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
@@ -202,6 +209,11 @@ and display settings (0.8.1 / 0.9.0), karaoke centering (0.9.6), desktop widget
 and audio chip (0.9.8).
 
 ## Notes
+
+- **Where the cache lives.** With `use_cache` on, fetched lyrics are written to a
+  `lyrics/` subfolder of the plugin data directory (`noctalia.pluginDataDir()`), one
+  `.lrc` per artist and title. The folder is created on the first successful save.
+  `local_lyrics_dir` is separate: that is the folder you fill yourself.
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
 - Lyrics are fetched from public services with `curl` — LRCLIB API primary,

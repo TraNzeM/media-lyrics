@@ -186,5 +186,33 @@ do
   ok(#dup == 2 and dup[1] == "netease", "sourceOrder ignores repeats")
 end
 
+-- ── word timing (enhanced LRC) ──────────────────────────────────────────────
+-- Word-by-word karaoke (issue territory of the official lyrics plugin): the
+-- markers are stripped from the text and their times drive the highlight.
+do
+  local clean, times = lib.stripWordTimes("<00:12.00>hello <00:12.45>world")
+  ok(clean == "hello world", "stripWordTimes removes the <mm:ss.xx> markers")
+  ok(#times == 2 and times[1] == 12.0 and math.abs(times[2] - 12.45) < 0.001,
+    "stripWordTimes keeps the word start times")
+  local c2, t2 = lib.stripWordTimes("plain line")
+  ok(c2 == "plain line" and #t2 == 0, "stripWordTimes leaves plain text alone")
+  local parsed = lib.parseLrc("[00:05.00] <00:05.00>hi <00:05.40>there", 0)
+  ok(#parsed == 1 and parsed[1].text == "hi there",
+    "parseLrc strips word markers out of the rendered text")
+  ok(parsed[1].words and #parsed[1].words == 2 and math.abs(parsed[1].words[2] - 5.40) < 0.001,
+    "parseLrc attaches the word times to the line")
+
+  ok(lib.fillProgress({ 1.0, 1.5, 2.0 }, 0.5, 1.0, 3.0, 3) == 0,
+    "fillProgress is 0 before the first word")
+  local p = lib.fillProgress({ 1.0, 1.5, 2.0 }, 1.25, 1.0, 3.0, 3)
+  ok(math.abs(p - 0.5) < 0.001, "fillProgress interpolates inside a word")
+  ok(lib.fillProgress({ 1.0, 1.5, 2.0 }, 9.0, 1.0, 3.0, 3) == 3,
+    "fillProgress saturates at the word count")
+  local q = lib.fillProgress(nil, 2.0, 1.0, 3.0, 4)
+  ok(math.abs(q - 2.0) < 0.001, "fillProgress sweeps evenly without word times")
+  local r = lib.fillProgress(nil, 9.0, 1.0, 3.0, 4)
+  ok(r == 4, "fillProgress caps at the word count")
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

@@ -75,10 +75,19 @@ function lib.parseLrc(text, offsetMs)
     end
 
     local lyricText = trim(rest)
+    local wordTimes = nil
+    if lyricText ~= "" then
+      local clean, times = lib.stripWordTimes(lyricText)
+      lyricText = trim(clean)
+      if #times > 0 then
+        wordTimes = {}
+        for _, wt in ipairs(times) do wordTimes[#wordTimes + 1] = wt + extraOffset end
+      end
+    end
     if #timestamps > 0 then
       if lyricText ~= "" then
         for _, t in ipairs(timestamps) do
-          result[#result + 1] = { time = t, text = lyricText }
+          result[#result + 1] = { time = t, text = lyricText, words = wordTimes }
         end
       end
     else
@@ -233,6 +242,54 @@ function lib.charCount(s)
     n = n + 1
   end
   return n
+end
+
+-- ── word timing (enhanced LRC) ─────────────────────────────────────────────
+-- Enhanced LRC marks the start of each word with <mm:ss.xx> INSIDE the line:
+--   [00:12.00] <00:12.00>hello <00:12.45>world
+-- The markers are not lyrics: strip them out of the text and keep their times,
+-- so the renderer can sweep the highlight word by word. Lines without markers
+-- come back with an empty times list and sweep evenly instead.
+function lib.stripWordTimes(text)
+  local clean, times = {}, {}
+  local pos = 1
+  while true do
+    local fs, fe, min, sec, frac = string.find(text, "<(%d+):(%d%d?)%.?(%d*)>", pos)
+    if not fs then
+      clean[#clean + 1] = string.sub(text, pos)
+      break
+    end
+    clean[#clean + 1] = string.sub(text, pos, fs - 1)
+    times[#times + 1] = tonumber(min) * 60 + tonumber(sec) + lib.fractionalSeconds(frac)
+    pos = fe + 1
+  end
+  return table.concat(clean), times
+end
+
+-- How far the highlight has swept, as a float index over words: 0 = nothing
+-- filled, 1 = the first word is done, 2.5 = two words done and half of the
+-- third. `wordCount` is the number of words the ROW shows (a wrapped line has
+-- fewer than the whole lyric), so the answer is relative to the row.
+-- Without word times the fill sweeps evenly across the line's span.
+function lib.fillProgress(words, nowSec, lineStartSec, lineEndSec, wordCount)
+  local count = wordCount or (words and #words) or 1
+  if count <= 0 then return 0 end
+  if words and #words > 0 then
+    local n = #words
+    if nowSec <= words[1] then return 0 end
+    for i = 1, n do
+      local a = words[i]
+      local b = (i < n) and words[i + 1] or math.max((lineEndSec or a) , a) + 0.001
+      if nowSec < b then
+        local span = math.max(b - a, 0.001)
+        return math.min(count, (i - 1) + (nowSec - a) / span)
+      end
+    end
+    return count
+  end
+  local span = math.max((lineEndSec or (lineStartSec + 3)) - lineStartSec, 0.001)
+  local f = math.max(0, math.min(1, (nowSec - lineStartSec) / span))
+  return f * count
 end
 
 -- ── cache locations ───────────────────────────────────────────────────────

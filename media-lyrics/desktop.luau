@@ -43,6 +43,10 @@ local function fmtTime(sec)
   return string.format("%d:%02d", m, s)
 end
 
+-- Word-timing helpers (enhanced LRC parsing and the highlight sweep) live in
+-- lyrics_lib so the panel, the widget and the unit tests share one implementation.
+local lyrics_lib = require("./lyrics_lib.luau")
+
 local function singleLine(text)
   text = tostring(text or "")
   -- Use REAL escapes here, never the percent-r / percent-n / percent-t shorthand:
@@ -268,7 +272,7 @@ local function render()
         width = 56, height = 56, radius = 14, fit = "cover" })
     else
       headKids[#headKids + 1] = ui.box({ key = "coverph", width = 56, height = 56,
-        radius = 14, fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
+        radius = 14, fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
         align = "center" }, {
         ui.glyph({ name = live and "disc" or "music-off", size = 30, color = "on_surface_variant" }),
       })
@@ -302,7 +306,7 @@ local function render()
   --     a line. The current line is emphasised by colour alone, never by a bigger font,
   --     because a bigger font would make its slot taller.
   local maxSlots = math.max(1, math.floor((midH + 3) / (ROW_H + 3)))
-  local slotText, slotKind = {}, {}
+  local slotText, slotKind, slotFill = {}, {}, {}
 
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
   if lines then
@@ -331,12 +335,41 @@ local function render()
         growDown, switched = not growDown, true
       end
     end
+    -- Karaoke sweep: how far the highlight has moved through the CURRENT line.
+    -- Enhanced LRC carries word timestamps and the highlight steps word by word;
+    -- without them it sweeps evenly across the line's span. Each wrapped row of
+    -- the line then gets its own share of that sweep.
+    local cur = lines[active]
+    local lineStart = cur.time or 0
+    local lineEnd = (active < n and lines[active + 1].time) or s.lengthSec or (lineStart + 3)
+    local totalWords = 0
+    for _ in singleLine(cur.text):gmatch("%S+") do totalWords = totalWords + 1 end
+    local swept = (totalWords > 0) and
+      lyrics_lib.fillProgress(cur.words, (interpPos(s) or 0), lineStart, lineEnd, totalWords) or 0
+
+    local wordsBefore = 0
     for i = lo, hi do
       local kind = (i == active) and "cur"
         or (((i == active + 1) or (i == active - 1)) and "near" or "far")
+      if i ~= active then wordsBefore = 0 end
       for _, piece in ipairs(pieces(i)) do
         slotText[#slotText + 1] = piece
         slotKind[#slotKind + 1] = kind
+        local fill = false
+        if kind == "cur" then
+          local rowWords, ranges = 0, {}
+          for first, last in piece:gmatch("()%S+()") do
+            rowWords = rowWords + 1
+            ranges[#ranges + 1] = first
+            ranges[#ranges + 1] = last - 1
+          end
+          if rowWords > 0 then
+            fill = { ranges = ranges,
+                     progress = math.max(0, math.min(rowWords, swept - wordsBefore)) }
+          end
+          wordsBefore = wordsBefore + rowWords
+        end
+        slotFill[#slotFill + 1] = fill
       end
     end
   else
@@ -352,9 +385,19 @@ local function render()
     local kind = slotKind[k]
     local color = (kind == "cur" and "primary")
       or (kind == "near" and "on_surface")
-      or "on_surface_variant"
-    midNodes[#midNodes + 1] = ui.label({ key = "slot" .. k,
-      text = slotText[k] or " ", fontSize = ROW_H_FS, color = color })
+      or "on_surface_container"
+    local fill = slotFill[k]
+    -- ui.fillLabel (plugin_api 51) sweeps a second color over the text. Older
+    -- shells do not have it: fall back to the plain label and let colour alone
+    -- mark the current line, exactly as before.
+    if fill and type(ui.fillLabel) == "function" then
+      midNodes[#midNodes + 1] = ui.fillLabel({ key = "slot" .. k,
+        text = slotText[k] or " ", fontSize = ROW_H_FS, color = color,
+        fillColor = "primary", fillRanges = fill.ranges, fillProgress = fill.progress })
+    else
+      midNodes[#midNodes + 1] = ui.label({ key = "slot" .. k,
+        text = slotText[k] or " ", fontSize = ROW_H_FS, color = color })
+    end
   end
 
   -- ── band 3: transport ──────────────────────────────────────────────────────
@@ -385,10 +428,10 @@ local function render()
   -- built-in clock and weather widgets expose.
   local rootProps = { key = "root", gap = 8, align = "start", minWidth = width }
   if useBg then
-    rootProps.fill = "surface_variant/0.85"
+    rootProps.fill = "surface_container/0.85"
     rootProps.radius = 14
     rootProps.padding = 14
-    rootProps.border = "outline/0.35"
+    rootProps.border = "outline_variant/0.35"
     rootProps.borderWidth = 1
   end
 
@@ -416,6 +459,18 @@ end)
 function update()
   -- second ticks keep the clock/progress moving while a track plays
   pcall(function() desktopWidget.setWantsSecondTicks(true) end)
+  -- Frame ticks drive the karaoke sweep between second boundaries. Only worth
+  -- the frames while something is playing with lyrics on screen.
+  local karaoke = type(snap) == "table" and snap.playing == true
+    and type(snap.lyrics) == "table" and #snap.lyrics > 0
+  pcall(function() desktopWidget.setNeedsFrameTick(karaoke) end)
+  render()
+end
+
+-- Smooth karaoke: while frame ticks are on the host calls this every frame and
+-- only `fillProgress` changes between renders, so the re-render is cheap. On a
+-- shell without ui.fillLabel this never matters (the sweep is not drawn there).
+function onFrameTick(_deltaMs)
   render()
 end
 
