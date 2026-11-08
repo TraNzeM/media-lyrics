@@ -385,7 +385,7 @@ local function render()
     local kind = slotKind[k]
     local color = (kind == "cur" and "primary")
       or (kind == "near" and "on_surface")
-      or "on_surface_container"
+      or "on_surface_variant"
     local fill = slotFill[k]
     -- ui.fillLabel (plugin_api 51) sweeps a second color over the text. Older
     -- shells do not have it: fall back to the plain label and let colour alone
