@@ -78,6 +78,10 @@
       "description": "Content width in logical pixels. Keep the editor box on auto (0) so the surface hugs the content.",
       "label": "Widget width"
     },
+    "desktop_word_sweep": {
+      "description": "Sweep the highlight word by word through the current line. Off: the whole line is highlighted at once (line by line).",
+      "label": "Word-by-word highlight"
+    },
     "hide_album_art": {
       "description": "Hide the artwork and its fallback icon.",
       "label": "Hide album art"

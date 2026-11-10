@@ -288,6 +288,15 @@ entry = "desktop.luau"
   description_key = "settings.desktop_active_color.description"
   default = "primary"
 
+  # Word-by-word karaoke sweep on the current line. Off keeps the earlier look:
+  # the whole line is highlighted at once and the highlight steps line by line.
+  [[desktop_widget.setting]]
+  key = "word_sweep"
+  type = "bool"
+  label_key = "settings.desktop_word_sweep.label"
+  description_key = "settings.desktop_word_sweep.description"
+  default = true
+
   [[desktop_widget.setting]]
   key = "shadow"
   type = "bool"

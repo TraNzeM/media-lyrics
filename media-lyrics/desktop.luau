@@ -268,6 +268,7 @@ local function render()
   local color = cfgColor("color", "on_surface")
   local activeColor = cfgColor("active_color", "primary")
   local shadow = cfgBool("shadow", false)
+  local wordSweep = cfgBool("word_sweep", true)  -- off = whole-line highlight
   local rowH = fontSz + 4                   -- measured: font_size + 4 px a line
   -- The host card (background + background_padding, edited in the widget editor)
   -- wraps OUTSIDE the content, so the text width is exactly the width setting.
@@ -370,13 +371,15 @@ local function render()
     -- Karaoke sweep: how far the highlight has moved through the CURRENT line.
     -- Enhanced LRC carries word timestamps and the highlight steps word by word;
     -- without them it sweeps evenly across the line's span. Each wrapped row of
-    -- the line then gets its own share of that sweep.
+    -- the line then gets its own share of that sweep. `word_sweep` off keeps the
+    -- earlier look: the whole line is coloured at once and the highlight steps
+    -- line by line.
     local cur = lines[active]
     local lineStart = cur.time or 0
     local lineEnd = (active < n and lines[active + 1].time) or s.lengthSec or (lineStart + 3)
     local totalWords = 0
     for _ in singleLine(cur.text):gmatch("%S+") do totalWords = totalWords + 1 end
-    local swept = (totalWords > 0) and
+    local swept = (wordSweep and totalWords > 0) and
       lyrics_lib.fillProgress(cur.words, (interpPos(s) or 0), lineStart, lineEnd, totalWords) or 0
 
     local wordsBefore = 0
@@ -388,7 +391,7 @@ local function render()
         slotText[#slotText + 1] = piece
         slotKind[#slotKind + 1] = kind
         local fill = false
-        if kind == "cur" then
+        if kind == "cur" and wordSweep then
           local rowWords, ranges = 0, {}
           for first, last in piece:gmatch("()%S+()") do
             rowWords = rowWords + 1
@@ -492,9 +495,10 @@ function update()
   -- second ticks keep the clock/progress moving while a track plays
   pcall(function() desktopWidget.setWantsSecondTicks(true) end)
   -- Frame ticks drive the karaoke sweep between second boundaries. Only worth
-  -- the frames while something is playing with lyrics on screen.
-  local karaoke = type(snap) == "table" and snap.playing == true
-    and type(snap.lyrics) == "table" and #snap.lyrics > 0
+  -- the frames while something is playing with lyrics on screen and `word_sweep`
+  -- is on: the whole-line highlight repaints on the 150 ms state publish alone.
+  local karaoke = cfgBool("word_sweep", true) and type(snap) == "table"
+    and snap.playing == true and type(snap.lyrics) == "table" and #snap.lyrics > 0
   pcall(function() desktopWidget.setNeedsFrameTick(karaoke) end)
   render()
 end

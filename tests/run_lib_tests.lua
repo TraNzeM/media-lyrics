@@ -154,6 +154,21 @@ do
     .. (perRowFont and "\n      a bigger font on the current line makes its slot taller" or ""))
 end
 
+-- ── source guard: the word-by-word sweep can be switched off ──
+-- `word_sweep = false` must fall back to the whole-line highlight (the earlier
+-- line-by-line look), so the fill may only be built when the setting is on.
+do
+  local f = io.open(dir .. "/../media-lyrics/desktop.luau")
+  local body = f and f:read("a") or ""
+  if f then f:close() end
+  local read = body:find('cfgBool("word_sweep", true)', 1, true) ~= nil
+  local gated = body:find('if kind == "cur" and wordSweep then', 1, true) ~= nil
+  ok(read and gated,
+    "the word-by-word sweep is gated on the word_sweep setting"
+    .. (not read and "\n      the setting is not read" or "")
+    .. (not gated and "\n      the fill is built unconditionally" or ""))
+end
+
 -- ── cache paths ────────────────────────────────────────────────────────────
 -- The cache writes into a `lyrics/` subfolder of the plugin data dir and the
 -- host does not create parents on write, so the plan must expose the folder

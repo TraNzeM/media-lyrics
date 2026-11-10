@@ -4,6 +4,27 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Desktop widget settings** aligned with the official lyrics widget: `font_size`,
+  `color`, `active_color`, `shadow`, `hide_when_no_media`, `hide_when_idle`; `width`
+  now spans 160–4000 px and `lines` goes up to 15.
+- **`word_sweep`** (desktop widget, on by default) — turn the word-by-word progression
+  off and keep the earlier line-by-line look: the whole current line is highlighted at
+  once and the highlight steps from line to line.
+
+### Fixed
+
+- **Two Background toggles for one card.** The widget editor already owns the card
+  (`background` + `background_opacity` + `background_padding` + `background_radius`),
+  and the plugin's own `background` setting wrote the same key — one toggle lit two
+  stacked cards. The plugin-side toggle is gone; use the editor's Background controls.
+- **Empty side fields when settings changed.** The editor stores the real box size on
+  drag, freezing an auto-sized widget into a fixed box the content no longer filled.
+  Both desktop widgets are back to `box_width`/`box_height` = 0 (auto).
+
 ## [1.0.0] — 2026-11-09
 
 A karaoke release: the highlight now sweeps the current line **word by word**, and

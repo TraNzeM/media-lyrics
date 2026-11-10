@@ -124,6 +124,8 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
   across the line, which is all the line timestamps can honestly support. Long lines
   wrap and the sweep follows each wrapped row. Needs a shell with `ui.fillLabel`
   (plugin_api 51); on older shells the current line is simply shown in the accent colour.
+  The `word_sweep` desktop-widget setting (on by default) switches the progression off:
+  the whole line then lights up at once and the highlight steps line by line.
 
 - **Karaoke lyric carousel** — 9/12/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
