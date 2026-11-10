@@ -6,26 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Desktop widget settings** aligned with the official lyrics widget: `font_size`,
-  `color`, `active_color`, `shadow`, `hide_when_no_media`, `hide_when_idle`; `width`
-  now spans 160–4000 px and `lines` goes up to 15.
-- **`word_sweep`** (desktop widget, on by default) — turn the word-by-word progression
-  off and keep the earlier line-by-line look: the whole current line is highlighted at
-  once and the highlight steps from line to line.
-
-### Fixed
-
-- **Two Background toggles for one card.** The widget editor already owns the card
-  (`background` + `background_opacity` + `background_padding` + `background_radius`),
-  and the plugin's own `background` setting wrote the same key — one toggle lit two
-  stacked cards. The plugin-side toggle is gone; use the editor's Background controls.
-- **Empty side fields when settings changed.** The editor stores the real box size on
-  drag, freezing an auto-sized widget into a fixed box the content no longer filled.
-  Both desktop widgets are back to `box_width`/`box_height` = 0 (auto).
-
-## [1.0.0] — 2026-11-09
+## [1.0.0] — 2026-11-10
 
 A karaoke release: the highlight now sweeps the current line **word by word**, and
 several reports from the field are acted on. (Thank you, @junevin1-png.)
@@ -40,6 +21,12 @@ several reports from the field are acted on. (Thank you, @junevin1-png.)
   (plugin_api 51) get the sweep; older shells keep the previous look, where only the
   colour marks the current line. The `<mm:ss.xx>` markers used to show up as literal
   text — they are stripped now.
+- **`word_sweep`** (desktop widget, on by default) — turn the word-by-word progression
+  off and keep the earlier line-by-line look: the whole current line is highlighted at
+  once and the highlight steps from line to line.
+- **Desktop widget settings** aligned with the official lyrics widget: `font_size`,
+  `color`, `active_color`, `shadow`, `hide_when_no_media`, `hide_when_idle`; `width`
+  now spans 160–4000 px and `lines` goes up to 15.
 - **`source_order`** — which online provider is asked first. Default `lrclib, netease`;
   write `netease, lrclib` to prefer NetEase. An id left out of the list keeps its
   default place at the end, so a partial list never drops a provider. A plain (untimed)
@@ -53,6 +40,14 @@ several reports from the field are acted on. (Thank you, @junevin1-png.)
   creating it by hand did not help, because the real location sits inside
   `pluginDataDir()` where nobody would think to look. The folder is now created on the
   first successful save.
+- **Two Background toggles for one card.** The desktop-widget editor already owns the
+  card (`background` + `background_opacity` + `background_padding` + `background_radius`),
+  and the plugin's own `background` setting wrote the same key — one toggle lit two
+  stacked cards. The plugin-side toggle is gone; use the editor's Background controls.
+- **Empty side fields when settings changed.** The desktop-widget editor stores the real
+  box size on drag, silently freezing an auto-sized widget into a fixed box the content
+  no longer filled. Keep `box_width`/`box_height` at 0 (auto) and the tile hugs the
+  content at every `width`/`lines` value.
 
 ### Changed
 
