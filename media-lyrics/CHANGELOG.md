@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-11-10
+
+### Added
+
+- **Word timings for the word-by-word highlight.** `lrcmux` joins the source list
+  and NetEase answers with its word-timed variant — the highlight follows the
+  real word onsets. `source_order` accepts `lrcmux`, `lrclib`, `netease`.
+- Lyrics cached without word timings gain them on their next play: the text
+  stays as it is, only the timings are added.
+
+### Fixed
+
+- **The word-by-word highlight no longer lags behind the singing.**
+
 ## [1.0.0] — 2026-11-10
 
 The highlight now sweeps the current line **word by word**, the desktop widget is
