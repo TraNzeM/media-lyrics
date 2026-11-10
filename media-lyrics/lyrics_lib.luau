@@ -315,8 +315,8 @@ function lib.sourceOrder(cfg)
   local known = {}
   for _, id in ipairs(lib.SOURCE_ORDER_DEFAULT) do known[id] = true end
   local out, seen = {}, {}
-  for id in tostring(cfg or ""):gmatch("[^,%s]+") do
-    id = id:lower()
+  for raw in tostring(cfg or ""):gmatch("[^,%s]+") do
+    local id = raw:lower()   -- Lua 5.4 forbids assigning to a for-loop variable
     if known[id] and not seen[id] then
       out[#out + 1] = id
       seen[id] = true

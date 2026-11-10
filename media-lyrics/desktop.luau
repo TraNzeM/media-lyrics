@@ -16,6 +16,8 @@
 -- desktop widget drives the very same service.
 
 local snap = nil
+-- Last visibility pushed to desktopWidget.setVisible; only send on change.
+local shown = true
 
 -- ── settings ────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,19 @@ local function cfgInt(key, fallback, lo, hi)
   if lo and n < lo then n = lo end
   if hi and n > hi then n = hi end
   return n
+end
+
+local function cfgColor(key, fallback)
+  local ok, v = pcall(function() return noctalia.getConfig(key) end)
+  if ok and type(v) == "string" and v ~= "" then return v end
+  return fallback
+end
+
+-- Far rows sit back at reduced strength. Theme roles take an alpha suffix;
+-- a hex value cannot be dimmed safely, so it passes through unchanged.
+local function dim(c)
+  if c:sub(1, 1) == "#" or c:find("/", 1, true) then return c end
+  return c .. "/0.55"
 end
 
 -- ── helpers ─────────────────────────────────────────────────────────────────
@@ -228,14 +243,10 @@ end
 -- Only the middle's content changes between states; its box never does, so the
 -- header sits at the top and the transport at the bottom in every state alike.
 --
--- Row heights below are what the host actually produces, measured on the desktop:
--- 12px text renders 16px a line, the 14px active line 18px, and a wrapped row costs
--- two lines. Guessing these wrong is what would put the geometry off.
-
-local ROW_H = 16
-local ROW_H_ACTIVE = 18
-local ROW_H_FS = 12
-local ROW_H_ACTIVE_FS = 14
+-- Row height is what the host actually produces, measured on the desktop:
+-- 12px text renders a 16px line, 14px renders 18px, so a row is font_size + 4 px
+-- and a wrapped lyric costs two rows. Guessing this wrong is what would put the
+-- geometry off — the window below is built from that one measured relation.
 
 -- A snapshot with every field the render path touches, so no branch needs a nil
 -- check and the idle state lays out through exactly the same code as a playing one.
@@ -251,18 +262,39 @@ end
 local function render()
   local showArtist = cfgBool("show_artist", true)
   local showCover = cfgBool("show_cover", true)
-  local wantLines = cfgInt("lines", 3, 1, 9)
-  local width = cfgInt("width", 320, 160, 900)
-  local useBg = cfgBool("background", false)
-  local textW = width - (useBg and 30 or 0)   -- padding only exists with a card
+  local wantLines = cfgInt("lines", 3, 1, 15)
+  local width = cfgInt("width", 320, 160, 4000)
+  local fontSz = cfgInt("font_size", 12, 8, 96)
+  local color = cfgColor("color", "on_surface")
+  local activeColor = cfgColor("active_color", "primary")
+  local shadow = cfgBool("shadow", false)
+  local rowH = fontSz + 4                   -- measured: font_size + 4 px a line
+  -- The host card (background + background_padding, edited in the widget editor)
+  -- wraps OUTSIDE the content, so the text width is exactly the width setting.
+  local textW = width
 
   local live = (type(snap) == "table" and snap.hasPlayer == true)
   local s = live and snap or idleSnapshot()
 
-  -- Height of the middle band: a full window, every row on two lines, one of them
-  -- the active (taller) row. It is the WORST case, so the band never has to shrink
-  -- and its content can never overflow.
-  local midH = (wantLines - 1) * 2 * ROW_H + 2 * ROW_H_ACTIVE
+  -- Hide as a whole (card included) while there is nothing to show. Same rules
+  -- as the official lyrics widget: no player -> hide_when_no_media decides,
+  -- paused player -> hide_when_idle decides.
+  local vis
+  if not live then
+    vis = not cfgBool("hide_when_no_media", false)
+  else
+    vis = (not cfgBool("hide_when_idle", false)) or s.playing == true
+  end
+  if vis ~= shown then
+    shown = vis
+    pcall(function() desktopWidget.setVisible(vis) end)
+  end
+
+  -- Height of the middle band: a full window with every lyric wrapped onto two
+  -- rows — the WORST case, so the band never shrinks and never overflows. The
+  -- +4 px slack keeps the floor() below from dropping the second row of a
+  -- single lyric (lines = 1 still shows two rows).
+  local midH = wantLines * 2 * rowH + 4
 
   -- ── band 1: header ─────────────────────────────────────────────────────────
   local headKids = {}
@@ -305,7 +337,7 @@ local function render()
   --     and the slots that are left over are filled with a space so they still occupy
   --     a line. The current line is emphasised by colour alone, never by a bigger font,
   --     because a bigger font would make its slot taller.
-  local maxSlots = math.max(1, math.floor((midH + 3) / (ROW_H + 3)))
+  local maxSlots = math.max(1, math.floor((midH + 3) / (rowH + 3)))
   local slotText, slotKind, slotFill = {}, {}, {}
 
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
@@ -314,7 +346,7 @@ local function render()
     -- activeLine returns 0 until the playhead passes the first timestamp
     local active = math.min(math.max(activeLine(s), 1), n)
     local function pieces(i)
-      local w = wrapLyric(singleLine(lines[i].text), ROW_H_FS, textW) .. "\n"
+      local w = wrapLyric(singleLine(lines[i].text), fontSz, textW) .. "\n"
       local out = {}
       for piece in w:gmatch("([^\n]*)\n") do out[#out + 1] = piece end
       return out
@@ -383,20 +415,25 @@ local function render()
   local midNodes = {}
   for k = 1, maxSlots do
     local kind = slotKind[k]
-    local color = (kind == "cur" and "primary")
-      or (kind == "near" and "on_surface")
-      or "on_surface_variant"
+    -- Depth of field: rows next to the current one read at full strength, the
+    -- rest sit back (dim). The current line is marked by colour only, never by
+    -- a bigger font — see GEOMETRY above.
+    local rowColor = (kind == "far") and dim(color) or color
     local fill = slotFill[k]
-    -- ui.fillLabel (plugin_api 51) sweeps a second color over the text. Older
-    -- shells do not have it: fall back to the plain label and let colour alone
-    -- mark the current line, exactly as before.
+    -- ui.fillLabel (plugin_api 51) sweeps active_color over the text word by
+    -- word — the karaoke highlight. Older shells do not have it: fall back to
+    -- the plain label and let active_color mark the whole current line.
     if fill and type(ui.fillLabel) == "function" then
-      midNodes[#midNodes + 1] = ui.fillLabel({ key = "slot" .. k,
-        text = slotText[k] or " ", fontSize = ROW_H_FS, color = color,
-        fillColor = "primary", fillRanges = fill.ranges, fillProgress = fill.progress })
+      local props = { key = "slot" .. k,
+        text = slotText[k] or " ", fontSize = fontSz, color = rowColor,
+        fillColor = activeColor, fillRanges = fill.ranges, fillProgress = fill.progress }
+      if shadow then props.shadow = true end
+      midNodes[#midNodes + 1] = ui.fillLabel(props)
     else
-      midNodes[#midNodes + 1] = ui.label({ key = "slot" .. k,
-        text = slotText[k] or " ", fontSize = ROW_H_FS, color = color })
+      local props = { key = "slot" .. k, text = slotText[k] or " ",
+        fontSize = fontSz, color = (kind == "cur") and activeColor or rowColor }
+      if shadow then props.shadow = true end
+      midNodes[#midNodes + 1] = ui.label(props)
     end
   end
 
@@ -423,17 +460,12 @@ local function render()
       fontSize = 11, color = "on_surface_variant" }),
   })
 
-  -- Match the built-in desktop widgets: no card, no border, no divider by default —
-  -- the content sits directly on the wallpaper. A background is opt-in, like the
-  -- built-in clock and weather widgets expose.
+  -- No card drawn here: the host's widget editor owns the surface behind EVERY
+  -- desktop widget (background + background_opacity + background_padding +
+  -- background_radius) under the very `background` key a plugin setting would
+  -- collide with — that collision is what showed two Background toggles and one
+  -- card over another. Draw nothing and let the host pad around the content.
   local rootProps = { key = "root", gap = 8, align = "start", minWidth = width }
-  if useBg then
-    rootProps.fill = "surface_container/0.85"
-    rootProps.radius = 14
-    rootProps.padding = 14
-    rootProps.border = "outline_variant/0.35"
-    rootProps.borderWidth = 1
-  end
 
   desktopWidget.render(ui.column(rootProps, {
     header,

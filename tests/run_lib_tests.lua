@@ -143,7 +143,7 @@ do
   local f = io.open(dir .. "/../media-lyrics/desktop.luau")
   local body = f and f:read("a") or ""
   if f then f:close() end
-  local slots = body:find("math.max(1, math.floor((midH + 3) / (ROW_H + 3)))", 1, true) ~= nil
+  local slots = body:find("math.max(1, math.floor((midH + 3) / (rowH + 3)))", 1, true) ~= nil
     and body:find("for k = 1, maxSlots do", 1, true) ~= nil
   local slack = body:find("midSlack", 1, true) ~= nil
   local perRowFont = body:find("fontSize = ROW_H_ACTIVE_FS", 1, true) ~= nil
