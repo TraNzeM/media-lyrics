@@ -68,7 +68,7 @@ key = "source_order"
 type = "string"
 label_key = "settings.source_order.label"
 description_key = "settings.source_order.description"
-default = "lrclib, netease"
+default = "lrcmux, lrclib, netease"
 
 # Player filtering: comma-separated identity or bus-name substrings. When
 # allowlist is non-empty, only matching players are shown; blocklist excludes

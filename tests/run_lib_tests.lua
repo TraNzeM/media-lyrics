@@ -187,18 +187,19 @@ end
 -- first for a Chinese library). A partial list must never lose a provider.
 do
   local d = lib.sourceOrder("")
-  ok(d[1] == "lrclib" and d[2] == "netease" and #d == 2,
-    "sourceOrder defaults to lrclib then netease")
+  ok(d[1] == "lrcmux" and d[2] == "lrclib" and d[3] == "netease" and #d == 3,
+    "sourceOrder defaults to lrcmux, lrclib, netease")
   local n = lib.sourceOrder("netease, lrclib")
-  ok(n[1] == "netease" and n[2] == "lrclib", "sourceOrder honours the configured order")
+  ok(n[1] == "netease" and n[2] == "lrclib" and #n == 3,
+    "sourceOrder honours the configured order")
   local junk = lib.sourceOrder("bogus,NETEASE")
-  ok(junk[1] == "netease" and junk[2] == "lrclib",
+  ok(junk[1] == "netease" and junk[2] == "lrcmux" and junk[3] == "lrclib",
     "sourceOrder drops unknown ids and is case-insensitive")
   local partial = lib.sourceOrder("netease")
-  ok(partial[1] == "netease" and partial[2] == "lrclib",
+  ok(partial[1] == "netease" and partial[2] == "lrcmux" and partial[3] == "lrclib",
     "sourceOrder appends an omitted provider instead of losing it")
   local dup = lib.sourceOrder("netease, netease, lrclib")
-  ok(#dup == 2 and dup[1] == "netease", "sourceOrder ignores repeats")
+  ok(#dup == 3 and dup[1] == "netease", "sourceOrder ignores repeats")
 end
 
 -- ── word timing (enhanced LRC) ──────────────────────────────────────────────
@@ -239,6 +240,44 @@ do
     "marker gaps map evenly onto the visible words")
   local r = lib.fillProgress(nil, 9.0, 1.0, 3.0, 4)
   ok(r == 4, "fillProgress caps at the word count")
+end
+
+-- ── word-timed sources ──────────────────────────────────────────────────────
+do
+  local lrc = lib.wordRowsToLrc({
+    { start = 30780, words = {
+      { start = 30780, text = "I " }, { start = 30941, text = "wanna " },
+      { start = 31124, text = "feel" } } },
+  })
+  ok(lrc == "[0:30.78]<0:30.78>I <0:30.94>wanna <0:31.12>feel",
+    "wordRowsToLrc writes one enhanced-LRC marker per word")
+
+  local y = lib.yrcToLrc('[26630,5490](26630,300,0)Like (26930,240,0)when\n{"t":0,"c":[{"tx":"credit"}]}')
+  ok(y == "[0:26.63]<0:26.63>Like <0:26.93>when",
+    "yrcToLrc converts words and skips credit rows")
+
+  -- разные версии одного трека путать нельзя: тайминги ремикса собьют всю строку
+  local want = { title = "Somebody That I Used To Know", artist = "Gotye", durationSec = 244 }
+  ok(lib.trackMatches(want,
+      { title = "Somebody That I Used to Know", artist = "Gotye", duration = 243 }),
+    "trackMatches accepts the same recording")
+  ok(not lib.trackMatches(want,
+      { title = "Somebody That I Used to Know (Faux Pas Remix)", artist = "Gotye", duration = 239 }),
+    "trackMatches refuses a different remix")
+
+  ok(lib.SOURCE_ORDER_DEFAULT[1] == "lrcmux",
+    "the word-timed source is asked first")
+
+  -- пословные тайминги можно подмешать только к тому же тексту
+  ok(lib.textLooksSame("[00:01.00] Quarantine, fuck this disease\n[00:05.00] Nah, not for me",
+      "[00:01.00] <00:01.00>Quarantine <00:01.50>fuck <00:01.80>this <00:02.00>disease\n[00:05.00] <00:05.00>Nah <00:05.40>not <00:05.60>for <00:05.80>me"),
+    "textLooksSame ignores markers and punctuation")
+  ok(not lib.textLooksSame("[00:01.00] Quarantine, fuck this disease",
+      "[00:01.00] Somebody that I used to know"),
+    "textLooksSame refuses another song")
+  ok(lib.textLooksSame("[00:01.00] hello world",
+      "[00:01.00] <00:01.00>hello\n[00:01.50] <00:01.50>world"),
+    "textLooksSame ignores line breaks and stamps")
 end
 
 print(string.format("\n%d passed, %d failed", passed, failed))

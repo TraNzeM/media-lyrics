@@ -314,6 +314,119 @@ function lib.fillProgress(words, nowSec, lineStartSec, lineEndSec, wordCount)
   return f * count
 end
 
+-- ── word-timed sources ──────────────────────────────────────────────────────
+-- The word-timed providers speak their own formats; both convert to enhanced
+-- LRC (<mm:ss.xx>word markers), so parseLrc above stays the single reader.
+
+local function lrcTime(ms, open, close)
+  ms = math.max(0, math.floor(tonumber(ms) or 0))
+  local total = math.floor(ms / 1000)
+  return string.format("%s%d:%02d.%02d%s", open, math.floor(total / 60),
+    total % 60, math.floor(ms / 10) % 100, close)
+end
+
+-- Word rows in milliseconds (lrcmux shape: text/start/words[{text,start}]) to
+-- enhanced LRC. Rows without words come out as plain line-timed LRC.
+function lib.wordRowsToLrc(rows)
+  local out = {}
+  for _, row in ipairs(rows or {}) do
+    local words = row.words
+    if type(words) == "table" and #words > 0 then
+      local parts = {}
+      for _, w in ipairs(words) do
+        local t = trim(w.text or "")
+        if t ~= "" then
+          parts[#parts + 1] = lrcTime(w.start or 0, "<", ">") .. t
+        end
+      end
+      if #parts > 0 then
+        out[#out + 1] = lrcTime(row.start or 0, "[", "]") .. table.concat(parts, " ")
+      end
+    elseif trim(row.text or "") ~= "" then
+      out[#out + 1] = lrcTime(row.start or 0, "[", "]") .. trim(row.text)
+    end
+  end
+  return table.concat(out, "\n")
+end
+
+-- NetEase yrc to enhanced LRC. Rows look like
+--   [26630,5490](26630,300,0)Like (26930,240,0)when ...
+-- (line start+duration in ms, then per-word start+duration+flag and text).
+-- Credit rows arrive as JSON and are skipped.
+function lib.yrcToLrc(yrc)
+  local out = {}
+  for line in tostring(yrc or ""):gmatch("[^\r\n]+") do
+    local ls, text = line:match("^%[(%d+),%d+%](.*)$")
+    local lineMs = ls and tonumber(ls) or nil
+    if lineMs and text then
+      local parts, pos = {}, 1
+      while true do
+        local s, _, wstart, after = string.find(text, "%((%d+),%d+,%d+%)()", pos)
+        if not s then break end
+        local ne = string.find(text, "%(%d+,%d+,%d+%)", after)
+        local chunk = string.sub(text, after, (ne or (#text + 1)) - 1)
+        if trim(chunk) ~= "" then
+          parts[#parts + 1] = lrcTime(tonumber(wstart) or 0, "<", ">") .. trim(chunk)
+        end
+        pos = ne or (#text + 1)
+      end
+      if #parts > 0 then
+        out[#out + 1] = lrcTime(lineMs, "[", "]") .. table.concat(parts, " ")
+      end
+    end
+  end
+  return table.concat(out, "\n")
+end
+
+-- Conservative accept for third-party matches: the normalized title must be
+-- equal, the duration within 5 s, and the artist matching or contained. A remix
+-- with a different parenthetical suffix is a different recording and is
+-- refused — its timings would desync every line.
+function lib.trackMatches(want, got)
+  if type(want) ~= "table" or type(got) ~= "table" then return false end
+  local function norm(s)
+    return (trim(tostring(s or ""):lower()):gsub("%s+", " "))
+  end
+  local wt, gt = norm(want.title), norm(got.title)
+  if wt == "" or wt ~= gt then return false end
+  local wd, gd = tonumber(want.durationSec) or 0, tonumber(got.duration) or 0
+  if wd > 0 and gd > 0 and math.abs(wd - gd) > 5 then return false end
+  local wa, ga = norm(want.artist), norm(got.artist)
+  if wa == "" or ga == "" then return true end
+  return wa == ga or ga:find(wa, 1, true) ~= nil or wa: find(ga, 1, true) ~= nil
+end
+
+-- Do two lyric bodies say the same words? The comparison is a word bag —
+-- markers, punctuation and line breaks ignored: providers cut lines
+-- differently ("one long line" vs "two short ones" is the same song), while a
+-- translation or another song shares almost no words.
+function lib.textLooksSame(a, b)
+  local function bagOf(s)
+    local bag, total = {}, 0
+    -- line stamps and word markers are not words; JSON credit rows are not lines
+    s = tostring(s or ""):gsub("<%d+:%d%d?%.?%d*>", "")
+      :gsub("%[%d+:%d%d?%.?%d*%]", ""):lower()
+    for raw in (s .. "\n"):gmatch("([^\r\n]*)\r?\n") do
+      if not raw:match("^%s*{") then
+        for w in raw:gmatch("[%w\128-\255]+") do
+          bag[w] = (bag[w] or 0) + 1
+          total = total + 1
+        end
+      end
+    end
+    return bag, total
+  end
+  local ba, ta = bagOf(a)
+  local bb, tb = bagOf(b)
+  if ta == 0 or tb == 0 then return false end
+  local common = 0
+  for w, n in pairs(ba) do
+    local m = bb[w]
+    if m then common = common + math.min(n, m) end
+  end
+  return common / math.max(ta, tb) >= 0.8
+end
+
 -- ── cache locations ───────────────────────────────────────────────────────
 -- The cache lives in a `lyrics/` subfolder of the plugin data dir. The host
 -- does not create parent folders on write, so every writer must ask for the
@@ -331,7 +444,7 @@ end
 -- Online providers in the order the user wants them tried. Unknown or repeated
 -- ids are dropped; ids the user left out keep their default place at the end,
 -- so a partial list never loses a provider.
-lib.SOURCE_ORDER_DEFAULT = { "lrclib", "netease" }
+lib.SOURCE_ORDER_DEFAULT = { "lrcmux", "lrclib", "netease" }
 
 function lib.sourceOrder(cfg)
   local known = {}
