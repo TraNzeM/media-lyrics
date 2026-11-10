@@ -223,8 +223,20 @@ do
   ok(math.abs(p - 0.5) < 0.001, "fillProgress interpolates inside a word")
   ok(lib.fillProgress({ 1.0, 1.5, 2.0 }, 9.0, 1.0, 3.0, 3) == 3,
     "fillProgress saturates at the word count")
-  local q = lib.fillProgress(nil, 2.0, 1.0, 3.0, 4)
+  -- The last word keeps its own slot (the average between markers): it must NOT
+  -- crawl to the next line's timestamp — that tail read as "the animation is
+  -- slower than the words".
+  ok(lib.fillProgress({ 1.0, 1.5, 2.0 }, 2.6, 1.0, 10.0, 3) == 3,
+    "the last word is done after its own slot, not at the next line")
+  -- The even sweep (plain LRC) finishes a little early like the official
+  -- widget: sweepSpan = span - min(span * 0.3, 0.6) = 1.4 for [1, 3].
+  local q = lib.fillProgress(nil, 1.7, 1.0, 3.0, 4)
   ok(math.abs(q - 2.0) < 0.001, "fillProgress sweeps evenly without word times")
+  ok(lib.fillProgress(nil, 2.4, 1.0, 3.0, 4) == 4,
+    "the even sweep completes before the next line arrives")
+  -- Sparser markers than visible words still sweep the whole line.
+  ok(math.abs(lib.fillProgress({ 1.0, 2.0 }, 1.5, 1.0, 3.0, 4) - 1.0) < 0.001,
+    "marker gaps map evenly onto the visible words")
   local r = lib.fillProgress(nil, 9.0, 1.0, 3.0, 4)
   ok(r == 4, "fillProgress caps at the word count")
 end

@@ -212,10 +212,22 @@ local function interpPos(s)
   return pos
 end
 
+-- Live playback position straight from MPRIS (plugin_api 51) — the same source
+-- the official lyrics widget reads, so the sweep tracks the voice instead of a
+-- 150 ms-old service sample. Older shells fall back to the interpolation above.
+local function posNow(s)
+  local ok, p = pcall(function() return noctalia.mediaPlayer() end)
+  if ok and type(p) == "table" then
+    local ms = tonumber(p.positionMs)
+    if ms and ms >= 0 then return ms / 1000 end
+  end
+  return interpPos(s)
+end
+
 -- Which lyric line is current: the last line whose timestamp has passed.
 local function activeLine(s)
   if type(s) ~= "table" or type(s.lyrics) ~= "table" then return 0 end
-  local pos = interpPos(s)
+  local pos = posNow(s)
   local idx = 0
   for i = 1, #s.lyrics do
     local t = tonumber(s.lyrics[i].time) or -1
@@ -380,7 +392,7 @@ local function render()
     local totalWords = 0
     for _ in singleLine(cur.text):gmatch("%S+") do totalWords = totalWords + 1 end
     local swept = (wordSweep and totalWords > 0) and
-      lyrics_lib.fillProgress(cur.words, (interpPos(s) or 0), lineStart, lineEnd, totalWords) or 0
+      lyrics_lib.fillProgress(cur.words, (posNow(s) or 0), lineStart, lineEnd, totalWords) or 0
 
     local wordsBefore = 0
     for i = lo, hi do
@@ -459,7 +471,7 @@ local function render()
       enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
     ui.box({ key = "transportSlack", flexGrow = 1 }),
-    ui.label({ key = "time", text = fmtTime(interpPos(s)) .. " / " .. fmtTime(s.lengthSec),
+    ui.label({ key = "time", text = fmtTime(posNow(s)) .. " / " .. fmtTime(s.lengthSec),
       fontSize = 11, color = "on_surface_variant" }),
   })
 

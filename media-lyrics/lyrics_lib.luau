@@ -271,24 +271,46 @@ end
 -- third. `wordCount` is the number of words the ROW shows (a wrapped line has
 -- fewer than the whole lyric), so the answer is relative to the row.
 -- Without word times the fill sweeps evenly across the line's span.
+--
+-- Timing follows the official lyrics widget: every word fills over its own slot
+-- and the line finishes a little early. The old code stretched the LAST word to
+-- the next line's timestamp (and the even sweep to the line end), so the
+-- highlight crawled through every trailing gap — the animation read as slower
+-- than the singing.
 function lib.fillProgress(words, nowSec, lineStartSec, lineEndSec, wordCount)
   local count = wordCount or (words and #words) or 1
   if count <= 0 then return 0 end
   if words and #words > 0 then
     local n = #words
     if nowSec <= words[1] then return 0 end
+    -- Markers can be sparser than the visible words: sweep the word index space
+    -- evenly across the markers instead of capping at n (which froze the fill
+    -- and then jumped it to the end of the line).
+    local scale = count / n
     for i = 1, n do
       local a = words[i]
-      local b = (i < n) and words[i + 1] or math.max((lineEndSec or a) , a) + 0.001
+      local b
+      if i < n then
+        b = words[i + 1]
+      else
+        -- The last word keeps its own duration (the average slot), never the
+        -- wait for the next line.
+        local avg = (n > 1) and ((words[n] - words[1]) / (n - 1)) or 0.35
+        b = a + math.max(0.15, avg)
+        if lineEndSec and lineEndSec > a then b = math.min(b, lineEndSec) end
+      end
       if nowSec < b then
         local span = math.max(b - a, 0.001)
-        return math.min(count, (i - 1) + (nowSec - a) / span)
+        return math.min(count, ((i - 1) + (nowSec - a) / span) * scale)
       end
     end
     return count
   end
   local span = math.max((lineEndSec or (lineStartSec + 3)) - lineStartSec, 0.001)
-  local f = math.max(0, math.min(1, (nowSec - lineStartSec) / span))
+  -- Finish a little early (like the official widget) so the full line is seen
+  -- before the next one replaces it, instead of crawling through the gap.
+  local sweepSpan = math.max(span - math.min(span * 0.3, 0.6), 0.001)
+  local f = math.max(0, math.min(1, (nowSec - lineStartSec) / sweepSpan))
   return f * count
 end
 
