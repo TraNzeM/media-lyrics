@@ -533,7 +533,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       -- this source had no usable hit (or its own transport failed)
       nextFn(stash)
     end)
-  end
+  end)
   end -- fetchLrclib
 
   -- Remote stage: the two online providers, in the configured order. The
