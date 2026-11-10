@@ -8,22 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] — 2026-11-10
 
-A karaoke release: the highlight now sweeps the current line **word by word**, and
-several reports from the field are acted on. (Thank you, @junevin1-png.)
+The highlight now sweeps the current line **word by word**, the desktop widget is
+configurable, and a run of display bugs is fixed.
 
 ### Added
 
-- **Word-by-word karaoke.** When the lyrics carry word timestamps — enhanced LRC, where
-  `<00:12.00>word` marks the start of each word — the highlight moves one word at a time
-  in time with the recording. Without those markers it sweeps evenly across the line,
-  which is what the line timestamps alone can honestly support. Long lines wrap as
-  before and the sweep follows each wrapped row in turn. Shells with `ui.fillLabel`
-  (plugin_api 51) get the sweep; older shells keep the previous look, where only the
-  colour marks the current line. The `<mm:ss.xx>` markers used to show up as literal
-  text — they are stripped now.
+- **Word-by-word karaoke.** When the lyrics carry word timestamps (enhanced LRC), the
+  highlight moves one word at a time in time with the recording. Without them the sweep
+  is even across the line. Long lines wrap and the sweep follows each wrapped row. The
+  `<mm:ss.xx>` markers used to show up as literal text — they are stripped now.
 - **`word_sweep`** (desktop widget, on by default) — turn the word-by-word progression
-  off and keep the earlier line-by-line look: the whole current line is highlighted at
-  once and the highlight steps from line to line.
+  off: the whole current line is highlighted at once and the highlight steps line by
+  line.
 - **Desktop widget settings** aligned with the official lyrics widget: `font_size`,
   `color`, `active_color`, `shadow`, `hide_when_no_media`, `hide_when_idle`; `width`
   now spans 160–4000 px and `lines` goes up to 15.
@@ -34,26 +30,18 @@ several reports from the field are acted on. (Thank you, @junevin1-png.)
 
 ### Fixed
 
-- **The lyrics cache never wrote anything.** Cached lyrics live in a `lyrics/` subfolder
-  of the plugin data dir, and that folder was never created. The host does not create
-  parent folders on write, so every save failed silently: the folder never appeared, and
-  creating it by hand did not help, because the real location sits inside
-  `pluginDataDir()` where nobody would think to look. The folder is now created on the
-  first successful save.
-- **Two Background toggles for one card.** The desktop-widget editor already owns the
-  card (`background` + `background_opacity` + `background_padding` + `background_radius`),
-  and the plugin's own `background` setting wrote the same key — one toggle lit two
-  stacked cards. The plugin-side toggle is gone; use the editor's Background controls.
-- **Empty side fields when settings changed.** The desktop-widget editor stores the real
-  box size on drag, silently freezing an auto-sized widget into a fixed box the content
-  no longer filled. Keep `box_width`/`box_height` at 0 (auto) and the tile hugs the
-  content at every `width`/`lines` value.
+- **The lyrics cache never wrote anything.** Cached lyrics are saved again and work
+  offline.
+- **Two Background toggles for one card.** One toggle now controls the widget
+  background — the one in the desktop-widget editor, with its colour, opacity, radius
+  and padding controls.
+- **Empty side fields when settings changed.** The widget now hugs its content at any
+  `width` and `lines` value — no empty margins around the text.
 
 ### Changed
 
-- **`plugin_api` is declared as 32, not 30.** The plugin has used tooltips (API level 32)
-  since 0.9.8 while claiming 30, so on an older shell the tooltips simply vanished with
-  no clue why.
+- **`plugin_api` is declared as 32.** Tooltips need this level; on older shells they are
+  simply not shown.
 - **Colour roles follow Noctalia 5.4.0**, which retired `surface_variant` and `outline`:
   they are now `surface_container` and `outline_variant`. The colours are the same.
 
