@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`plugin_api` is declared as 43** — the colour roles need Noctalia 5.4.0.
+
 ## [1.0.1] — 2026-11-10
 
 ### Added

@@ -11,7 +11,7 @@
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
 version = "1.0.1"
-plugin_api = 32
+plugin_api = 43
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service", "desktop"]
