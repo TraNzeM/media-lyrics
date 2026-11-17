@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="https://github.com/TraNZeM/media-lyrics/blob/main/media-lyrics/README.md"><img alt="Plugin docs" src="https://img.shields.io/badge/docs-plugin%20README-lightgrey"></a>
   <a href="https://img.shields.io/badge/language-Luau-2C2D72"><img alt="Language: Luau" src="https://img.shields.io/badge/language-Luau-2C2D72"></a>
-  <a href="https://img.shields.io/badge/source-LRCLIB-22c55e"><img alt="Lyrics source: LRCLIB" src="https://img.shields.io/badge/source-LRCLIB-22c55e"></a>
+  <a href="https://img.shields.io/badge/sources-lrcmux,_LRCLIB,_NetEase-22c55e"><img alt="Lyrics source: LRCLIB" src="https://img.shields.io/badge/sources-lrcmux,_LRCLIB,_NetEase-22c55e"></a>
 </p>
 
 A full-featured media player panel with **time-synced lyrics**: karaoke-style
@@ -22,7 +22,7 @@ lyric carousel (9 / 12 / 16 visible lines per size preset), album cover,
 transport controls, and a progress bar — all in one floating panel, or as a
 **desktop widget** on the wallpaper and the lockscreen. **No playerctl, no python daemons,
 no GTK overlays** — it reads MPRIS directly via Noctalia's D-Bus aggregator
-and fetches lyrics from LRCLIB in pure Luau.
+and fetches lyrics in pure Luau (lrcmux / LRCLIB / NetEase).
 
 ## Screenshots
 
@@ -51,8 +51,8 @@ and fetches lyrics from LRCLIB in pure Luau.
 - 🎯 **Word-by-word karaoke** — the highlight sweeps the current line one word at a time
   when the lyrics carry word timestamps (enhanced LRC), and evenly across the line when
   they do not. Wrapped lines sweep row by row.
-- 🎯 **Your provider, your order** — `source_order` decides whether LRCLIB or
-  NetEase is asked first, so a library that lives on one service finds its text first.
+- 🎯 **Your provider, your order** — `source_order` decides whether lrcmux, LRCLIB
+  or NetEase is asked first, so a library that lives on one service finds its text first.
 - 💾 **Offline-friendly** — LRCLIB cache + local `.lrc` files with priority
 - 🌐 **Translatable** — every string goes through Noctalia's i18n (English ships in the plugin; other locales via Noctalia Translate), plus timing offset & cache settings
 
