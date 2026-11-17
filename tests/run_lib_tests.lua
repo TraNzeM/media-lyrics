@@ -280,5 +280,40 @@ do
     "textLooksSame ignores line breaks and stamps")
 end
 
+-- \u2500\u2500 parseLrc: quadratic-sort regression (community-plugins issue #1494) \u2500\u2500\u2500\u2500
+-- Hundreds of lines sharing ONE timestamp used to re-scan the whole list on
+-- every tie-break comparison (O(n^2)): 200 lines already took 43 ms and the
+-- host kills an async callback at 25 ms of CPU, so the service died mid-parse
+-- and the panel stuck on "Loading lyrics...". The order map keeps it O(n log n).
+do
+  local n = 2000
+  local buf = {}
+  for i = 1, n do buf[i] = string.format("[00:00.00]line %04d", i) end
+  local t0 = os.clock()
+  local parsed = lib.parseLrc(table.concat(buf, "\n"), 0)
+  local elapsed = os.clock() - t0
+  ok(#parsed == n, "parseLrc: " .. n .. " identical-timestamp lines all parsed")
+  ok(parsed[1].text == "line 0001" and parsed[n].text == "line 2000",
+    "parseLrc: tie-break keeps the input order (stable)")
+  ok(elapsed < 0.5,
+    string.format("parseLrc: %d identical timestamps in %.3fs (must not be quadratic)", n, elapsed))
+end
+
+-- \u2500\u2500 source guard: a stuck load always settles (issue #1494) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+do
+  local f = io.open(dir .. "/../media-lyrics/service.luau")
+  local body = f and f:read("a") or ""
+  if f then f:close() end
+  local watchdog = body:find('"sleep", "45"', 1, true) ~= nil
+    and body:find('snapshot.lyricsStatus == "loading"', 1, true) ~= nil
+  local guarded = body:find("pcall(parseLrc", 1, true) ~= nil
+  local falls = body:find("if localRaw and acceptLyrics(", 1, true) ~= nil
+  ok(watchdog and guarded and falls,
+    "service.luau: watchdog settles a stuck load, pcall survives a parse error, a broken local file falls through"
+    .. (not watchdog and "\n      the 45s watchdog is gone" or "")
+    .. (not guarded and "\n      parseLrc is not pcall-wrapped" or "")
+    .. (not falls and "\n      an unusable local file leaves the load unfinished" or ""))
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end
