@@ -101,6 +101,18 @@ if #ranked == 1 then
   ok(ranked[1].id == 1, "rankNetEaseSongs: best id is exact match (1)")
 end
 
+-- ── source guard: the desktop wrap math must never read a free global ──
+-- (the wave-2 engine unification silently dropped `local ADV_SPACE` and the
+-- balanced 2-line wrap crashed in render(); static check because the UI layer
+-- has no unit harness.)
+do
+  local src = io.open(dir .. "/../media-lyrics/desktop.luau")
+  local body = src and src:read("a") or ""
+  if src then src:close() end
+  ok(body:find("local ADV_SPACE = lyrics_lib.charAdv", 1, true) ~= nil,
+    "desktop.luau declares ADV_SPACE from the shared width table")
+end
+
 -- ── sanitizePart / lrcIsSynced / charCount ─────────────────────────────────
 ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes -> underscores")
 ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")

@@ -101,6 +101,11 @@ end
 -- balanced; anything longer fills the first line and is then ellipsized, because
 -- the row only reserves room for two. Returns the input unchanged when it fits.
 -- Memoised wrapper below: the tick must not re-wrap (host CPU budget is 25 ms).
+-- Space advance shared with the wrap math, derived from the measured width
+-- table so it can never drift from it (the wave-2 unification dropped the old
+-- local and left ADV_SPACE a nil global -> arithmetic crash in render()).
+local ADV_SPACE = lyrics_lib.charAdv(" ")
+
 local function _wrapLyricImpl(text, fontSize, maxW)
   local capEm = (maxW or 0) / (fontSize or 12)
   if capEm <= 0 then return text end
