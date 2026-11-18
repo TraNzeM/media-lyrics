@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Plain (unsynced) lyrics keep their line order.** All their lines tie on time and
+  the comparator returned `false` for them, leaving the order to `table.sort`, which
+  is not stable: a 40-line plain `.lrc` came out shuffled. They now fall through to
+  the same order map as synced lines sharing a timestamp.
 - **Cyrillic weighs about half an em per glyph instead of a full em.** `charAdv` now
   returns 1.0 only for CJK/emoji (3+ byte sequences) and ~0.58 for other non-ASCII,
   so Russian lyrics stop being truncated roughly twice too early. LRCLIB User-Agent

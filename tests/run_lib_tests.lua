@@ -308,6 +308,20 @@ do
     string.format("parseLrc: %d identical timestamps in %.3fs (must not be quadratic)", n, elapsed))
 end
 
+-- Plain (unsynced) lyrics all compare equal on time, so their order rests on
+-- the tie-break too: table.sort is not stable and used to shuffle them.
+do
+  local n = 40
+  local buf = {}
+  for i = 1, n do buf[i] = string.format("plain line %02d", i) end
+  local parsed = lib.parseLrc(table.concat(buf, "\n"), 0)
+  local inOrder = #parsed == n
+  for i = 1, #parsed do
+    if parsed[i].text ~= buf[i] then inOrder = false end
+  end
+  ok(inOrder, "parseLrc: unsynced lines keep the input order")
+end
+
 -- \u2500\u2500 projectPosition / parseMediaPlayerResponse (v1.1.0 media task) \u2500\u2500
 do
   ok(math.abs(lib.projectPosition(10, 1000, 2000, true) - 11.0) < 1e-6, "projectPosition advances when playing")

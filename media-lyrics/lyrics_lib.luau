@@ -168,11 +168,10 @@ function lib.parseLrc(text, offsetMs)
   table.sort(result, function(a, b)
     local at, bt = a.time >= 0, b.time >= 0
     if at ~= bt then return at end
-    if at and bt then
-      if a.time ~= b.time then return a.time < b.time end
-      return ord[a] < ord[b] -- stability
-    end
-    return false
+    if at and a.time ~= b.time then return a.time < b.time end
+    -- Unsynced lines tie too: table.sort is not stable, so they need the
+    -- order map as much as synced lines sharing a timestamp.
+    return ord[a] < ord[b]
   end)
   return result
 end
