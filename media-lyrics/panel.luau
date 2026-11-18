@@ -255,10 +255,7 @@ local ADV_SPACE = 0.28
 -- Split a lyric line into display sub-lines that fit the panel width, measured
 -- in em (unitEm) against the per-size capacity, NOT in character counts.
 -- Word-aware and BALANCED: a line needing exactly two sub-lines breaks near the
--- middle; longer lines fill whole chunks. A single word wider than the whole
--- line is hard-sliced (never splitting a UTF-8 sequence). Returns the original
--- string when it already fits. `reserved` shrinks the budget (cursor chevron).
-local function wrapLyric(text, fontSize, fontWeight, reserved)
+local function _wrapLyricImpl(text, fontSize, fontWeight, reserved)
   if text == nil or text == "" then return text end
   local sz = noctalia.getConfig("panel_size") or "medium"
   local maxW = (LYR_WIDTH[sz] or LYR_WIDTH.medium) - WRAP_GUTTER - (reserved or 0)
@@ -321,6 +318,18 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   end
   if cur ~= "" then out[#out + 1] = cur end
   return table.concat(out, "\n")
+end
+
+local _wrapCache = {}
+local function wrapLyric(text, fontSize, fontWeight, reserved)
+  if text == nil or text == "" then return text end
+  local sz = noctalia.getConfig("panel_size") or "medium"
+  local key = (text or "") .. "\x1f" .. tostring(fontSize) .. "\x1f" .. tostring(fontWeight) .. "\x1f" .. tostring(reserved) .. "\x1f" .. sz
+  local c = _wrapCache[key]
+  if c ~= nil then return c end
+  local r = _wrapLyricImpl(text, fontSize, fontWeight, reserved)
+  _wrapCache[key] = r
+  return r
 end
 
 -- Countdown state for the karaoke lead-in: a 3-2-1 shown ONLY in the last three

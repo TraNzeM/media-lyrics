@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xesam:title` as `Title - Artist`; the title is now split on the last ` - ` when the
   artist is empty, so the track identifies correctly. Fixes the case reported against
   yt-music in community-plugins#1510.
+- **The render path no longer burns the host's CPU budget on long lyrics.** Wrapping a
+  lyric line is memoised by text + font size + panel size (and width, for the desktop
+  widget), so the position tick only recomputes fill progress; it no longer re-wraps
+  every line each tick. Fixes the frozen widget / dropped frames seen with 200+ line
+  tracks (regression inherited from 1.0.x).
 
 ## [1.0.2] — 2026-11-17
 

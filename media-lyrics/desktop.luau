@@ -141,7 +141,8 @@ end
 -- A line needing exactly two sub-lines breaks near the middle so the halves look
 -- balanced; anything longer fills the first line and is then ellipsized, because
 -- the row only reserves room for two. Returns the input unchanged when it fits.
-local function wrapLyric(text, fontSize, maxW)
+-- Memoised wrapper below: the tick must not re-wrap (host CPU budget is 25 ms).
+local function _wrapLyricImpl(text, fontSize, maxW)
   local capEm = (maxW or 0) / (fontSize or 12)
   if capEm <= 0 then return text end
   -- EVERY row is returned as exactly two display lines, a short one padded with a
@@ -192,6 +193,17 @@ local function wrapLyric(text, fontSize, maxW)
   -- Not reachable while the early "fits on one line" check is in place, but it has
   -- to pad all the same: the row height only stays put if EVERY return is two lines.
   return table.concat(cur, " ")
+end
+
+local _wrapCache = {}
+local function wrapLyric(text, fontSize, maxW)
+  if text == nil or text == "" then return text end
+  local key = (text or "") .. "\x1f" .. tostring(fontSize) .. "\x1f" .. tostring(maxW)
+  local c = _wrapCache[key]
+  if c ~= nil then return c end
+  local r = _wrapLyricImpl(text, fontSize, maxW)
+  _wrapCache[key] = r
+  return r
 end
 
 -- Position now, interpolated from the last published sample (the service only
