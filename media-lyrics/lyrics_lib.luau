@@ -33,7 +33,63 @@ function lib.isMetadataLine(line)
     or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
     or l:match("^%[offset%s*:") ~= nil
   if basic then return true end
-  return lib.isNetEaseMetaLine(line)
+  
+-- ── text measurement (shared with panel.luau / desktop.luau / widget.luau) ──
+local function toChars(text)
+  local chars = {}
+  local i = 1
+  while i <= #text do
+    local byte = text:byte(i)
+    local len = 1
+    if byte >= 0xF0 then len = 4
+    elseif byte >= 0xE0 then len = 3
+    elseif byte >= 0xC0 then len = 2 end
+    chars[#chars + 1] = text:sub(i, i + len - 1)
+    i = i + len
+  end
+  return chars
+end
+
+local function charAdv(c)
+  local o = string.byte(c) or 32
+  if o >= 0x80 then return 1.0 end
+  if c == " " then return 0.28 end
+  if c == "i" or c == "l" or c == "I" then return 0.27 end
+  if c == "m" then return 0.92 end
+  if c == "w" or c == "M" or c == "W" then return 0.80 end
+  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
+     or c == "|" or c == "`" then return 0.28 end
+  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
+  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
+  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
+  return 0.56
+end
+
+local function unitEm(text)
+  local u = 0
+  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
+  return u
+end
+
+lib.toChars = toChars
+lib.charAdv = charAdv
+lib.unitEm = unitEm
+
+-- Hard-cut to a whole glyph boundary, appending an ellipsis when truncated.
+function lib.truncEm(text, capEm)
+  local out, used = {}, 0
+  for _, ch in ipairs(toChars(text)) do
+    local a = charAdv(ch)
+    if used + a > capEm then
+      return table.concat(out) .. "…"
+    end
+    out[#out + 1] = ch
+    used = used + a
+  end
+  return table.concat(out)
+end
+
+return lib.isNetEaseMetaLine(line)
 end
 
 function lib.looksLikeMalformedTimestamp(line)

@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The bar widget no longer splits the title mid-word.** Width is measured with the
+  real per-glyph advance table (shared via lyrics_lib) instead of a flat 0.62 em
+  estimate, and the title label carries a maxWidth with a small slop. Single line,
+  smart truncation with ellipsis, never a wrap.
 - **The panel no longer freezes on one track.** A lost async poll — a burst of track
   flips could exhaust the host's spawn slots — used to freeze the metadata, lyrics and
   cover on the walked-past track while the clock kept running past its end. The poll

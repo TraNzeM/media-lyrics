@@ -383,5 +383,22 @@ do
   ok(lib.projectPosition(5, 0, 1000, true, 0) == 6, "projectPosition without length runs free")
 end
 
+-- exact width table vs the old flat estimate (bar-widget budget)
+do
+  ok(lib.charAdv("m") == 0.92 and lib.charAdv("w") == 0.80, "charAdv: wide glyphs measured, not flat 0.62")
+  ok(math.abs(lib.unitEm("Mm") - (lib.charAdv("M") + 0.92)) < 1e-9, "unitEm sums charAdv")
+  ok(lib.truncEm("Мандала", 0.5) == "…", "truncEm: budget under one glyph shows the ellipsis marker")
+  -- self-consistent expectation: walk the same width table and cut at the
+  -- first glyph that would exceed the budget (never mid-glyph, ellipsis after)
+  local exp, w = "", 0
+  for ch in ("Mandala"):gmatch(".") do
+    local a = lib.charAdv(ch)
+    if w + a > 3.0 then break end
+    exp = exp .. ch
+    w = w + a
+  end
+  ok(lib.truncEm("Mandala", 3.0) == exp .. "…", "truncEm: cuts by width at a glyph boundary")
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

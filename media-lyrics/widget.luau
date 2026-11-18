@@ -21,6 +21,7 @@
 --   * Text width budget is estimated (no measure API): ~0.62 em per char at
 --     fontSize 12 -> ~7.5 px/char, calibrated against the built-in widget.
 
+local lyrics_lib = require("./lyrics_lib.luau")
 local glyphPlay = "player-play"
 local glyphPause = "player-pause"
 
@@ -168,14 +169,22 @@ local function buildFull(m, o)
 end
 
 -- Rolling window of `budget` chars over padded text; wraps forever.
-local function rolling(text, budget, offset)
+local function rolling(text, budgetEm, offset)
   local chars = toChars(text .. "   ")
   local n = #chars
+  if n == 0 then return "" end
   local start = (offset % n) + 1
   local out = {}
-  for k = 0, budget - 1 do
-    local idx = ((start + k - 1) % n) + 1
-    out[#out + 1] = chars[idx]
+  local used = 0
+  local idx = start
+  while used < budgetEm do
+    local ch = chars[idx]
+    local a = lyrics_lib.charAdv(ch)
+    if used + a > budgetEm and #out > 0 then break end
+    out[#out + 1] = ch
+    used = used + a
+    idx = (idx % n) + 1
+    if idx == start then break end
   end
   return table.concat(out)
 end
@@ -366,18 +375,19 @@ local function renderFrom(m, force)
   -- Text area = max_length minus the icon slot (art or fallback glyph both
   -- occupy artSize + gap).
   local iconW = (not o.hideArt) and (o.artSize + GAP) or 0
-  local budget = math.max(8, math.floor((o.maxLength - iconW) / CHAR_PX))
+  local budgetEm = (o.maxLength - iconW) / FONT_PX
+  if budgetEm < 1 then budgetEm = 1 end
 
-  local overBudget = charCount(full) > budget
+  local overBudget = lyrics_lib.unitEm(full) > budgetEm
   local scrolling = overBudget and
     (o.scroll == "always" or (o.scroll == "on_hover" and hovered))
 
   local shown
   if overBudget then
     if o.scroll == "none" then
-      shown = charPrefix(full, budget - 1) .. "…"
+      shown = lyrics_lib.truncEm(full, budgetEm)
     else
-      shown = rolling(full, budget, scrollOffset)
+      shown = rolling(full, budgetEm, scrollOffset)
     end
   else
     shown = full
@@ -399,6 +409,7 @@ local function renderFrom(m, force)
     fontSize = FONT_PX,
     opacity = dim,
     maxLines = 1,
+    maxWidth = math.floor(budgetEm * FONT_PX) + 4,
   })
 
   local textNode = ui.row({
@@ -462,8 +473,9 @@ function update()
   -- advance the rolling text
   local full = buildFull(m, o)
   local iconW = (not o.hideArt) and (o.artSize + GAP) or 0
-  local budget = math.max(8, math.floor((o.maxLength - iconW) / CHAR_PX))
-  local active = charCount(full) > budget and
+  local budgetEm = (o.maxLength - iconW) / FONT_PX
+  if budgetEm < 1 then budgetEm = 1 end
+  local active = lyrics_lib.unitEm(full) > budgetEm and
     (o.scroll == "always" or (o.scroll == "on_hover" and hovered))
   if not active then
     renderFrom(m, false)
