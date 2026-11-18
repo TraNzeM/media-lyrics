@@ -610,5 +610,25 @@ function lib.parseMediaPlayerResponse(resp)
   }
 end
 
+-- Index of the active lyric line for a given playback position: the last
+-- line whose timestamp <= pos. Returns -1 when no line has started yet
+-- (intro / before first timestamp). Plain/unsynced lines (time < 0) never
+-- become active here: callers treat -1 as "highlight nothing".
+function lib.activeIndex(lines, pos)
+  local active = -1
+  lines = lines or {}
+  for i = 1, #lines do
+    local t = lines[i] and lines[i].time
+    if type(t) == "number" and t >= 0 then
+      if t <= pos then
+        active = i
+      else
+        break
+      end
+    end
+  end
+  return active
+end
+
 return lib
 

@@ -327,5 +327,19 @@ do
   ok(lib.parseMediaPlayerResponse(nil) == nil, "parseMediaPlayerResponse rejects non-table")
 end
 
+-- activeIndex tests
+do
+  local synced = { {time=5}, {time=10}, {time=15} }
+  ok(lib.activeIndex(synced, 0) == -1, "activeIndex before first -> -1")
+  ok(lib.activeIndex(synced, 4.9) == -1, "activeIndex just before first -> -1")
+  ok(lib.activeIndex(synced, 5) == 1, "activeIndex at first -> 1")
+  ok(lib.activeIndex(synced, 7) == 1, "activeIndex between 1/2 -> 1")
+  ok(lib.activeIndex(synced, 12) == 2, "activeIndex between 2/3 -> 2")
+  ok(lib.activeIndex(synced, 99) == 3, "activeIndex after last -> 3")
+  local plain = { {time=-1}, {time=-1} }
+  ok(lib.activeIndex(plain, 100) == -1, "activeIndex plain never active")
+  ok(lib.activeIndex({}, 5) == -1, "activeIndex empty -> -1")
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

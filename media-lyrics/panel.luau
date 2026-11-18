@@ -479,16 +479,12 @@ local function buildLyricsBody(s)
       -- karaoke block, and with a third flexGrow on the scroll the free height
       -- split three ways - the list ended up a third of the area with big gaps
       -- above and below it. The second return value tells render not to centre.
-      return { ui.scroll({ flexGrow = 1, align = "stretch", revealKey = "lyr" .. (cursorLine or active or 1) }, rows) }, true
+      return { ui.scroll({ flexGrow = 1, align = "stretch", revealKey = "lyr" .. ((cursorLine > 0 and cursorLine) or (active > 0 and active) or 1) }, rows) }, true
     end
 
     -- synchronized: carousel around the playback line (karaoke fade ladder)
   local pos = interpPos(s)
-  local active = -1
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
+  local active = lyrics_lib.activeIndex(s.lyrics, pos)
 
   -- Lyric class per line: font size / weight from the karaoke distance
   -- ladder, precomputed ONCE so the window budget and the render loop share
@@ -841,7 +837,7 @@ local function buildInfoRow(s)
     return text
   end
   local artistLine = singleLine(s.artist ~= "" and s.artist or noctalia.tr("common.unknown-artist"))
-  if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
+  if s.album ~= "" then artistLine = artistLine .. " - " .. singleLine(s.album) end
 
   -- UTF-8 aware char split + per-char width units (community/lyrics scheme)
   local function toChars(text)

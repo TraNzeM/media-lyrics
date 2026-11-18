@@ -32,8 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Metadata with embedded newlines no longer splits the header into stray rows.**
+  `xesam:album` is now collapsed with `singleLine` like the title and artist already
+  were, so an album like `A\nlive` can no longer cut the artist line onto a second
+  row; overflow goes to the marquee as designed.
+- **No lyric line lights up during the instrumental intro.** The active line is
+  now the last line whose timestamp <= playback position (none before the first
+  timestamp); `cursorLine`/`revealKey` no longer fall back to the first line
+  before it starts; fill progress stays 0 until the line's first timestamp.
+
 - **A player that leaves `xesam:artist` empty no longer loses its lyrics.** Some players
-  (e.g. yt-music running mpv with `--force-media-title`) embed the artist into
   `xesam:title` as `Title - Artist`; the title is now split on the last ` - ` when the
   artist is empty, so the track identifies correctly. Fixes the case reported against
   yt-music in community-plugins#1510.
