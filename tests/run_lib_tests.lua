@@ -22,6 +22,14 @@ local function ok(cond, name)
   end
 end
 
+-- Module-load contract (the metrics used to live INSIDE isMetadataLine and only
+-- registered as a side effect of parsing): the width API must work BEFORE any
+-- parseLrc call in a fresh session.
+ok(type(lib.truncEm) == "function" and type(lib.charAdv) == "function"
+   and type(lib.unitEm) == "function" and type(lib.toChars) == "function",
+  "module load: metrics API exists without calling isMetadataLine first")
+ok(lib.truncEm("x", 0.5) == "…", "module load: truncEm callable before any parse")
+
 -- ── parseLrc: synced LRC ────────────────────────────────────────────────────
 local lrc = [[[ti:Some Song]
 [ar:Some Artist]
@@ -331,6 +339,10 @@ do
   ok(lib.parseMediaPlayerResponse(nil) == nil, "parseMediaPlayerResponse rejects non-table")
   ok(lib.trackKey("zen", "T", "A", 120000000.4) == "zen|T|A|120000000", "trackKey rounds lengthUs to integer")
   ok(lib.trackKey("zen", "T", "A", 100) == "zen" .. "|" .. "T" .. "|" .. "A" .. "|" .. "100", "trackKey concatenates fields")
+  ok(lib.sameClaim({ title = "Big Dawgs", artist = "A", durationSec = 0 }, { title = "Big Dawgs (feat. Kalmi)", artist = "A", durationSec = 190 }) == true, "sameClaim collapses prefix drift with zero duration")
+  ok(lib.sameClaim({ title = "Big Dawgs", artist = "A", durationSec = 100 }, { title = "Big Dawgs (feat. Kalmi)", artist = "A", durationSec = 190 }) == false, "sameClaim does not collapse suffix with both durations known")
+  ok(lib.sameClaim({ title = "Big Dawgs", artist = "A" }, { title = "Other", artist = "A" }) == false, "sameClaim rejects non-prefix title")
+  ok(lib.sameClaim({ title = "T", artist = "A" }, { title = "T", artist = "B" }) == false, "sameClaim rejects artist change")
 end
 
 -- activeIndex tests

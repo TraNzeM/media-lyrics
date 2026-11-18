@@ -32,7 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **The bar widget no longer splits the title mid-word.** Width is measured with the
+- **«Loading lyrics...» no longer sticks.** The 45 s watchdog now arms at every
+  point `lyricsStatus` becomes `loading`, and MPRIS metadata drift (title suffix /
+  length fill-in) is treated as the same track via `lyrics_lib.sameClaim`.
+  - **The bar widget no longer splits the title mid-word.** Width is measured with the
   real per-glyph advance table (shared via lyrics_lib) instead of a flat 0.62 em
   estimate, and the title label carries a maxWidth with a small slop. Single line,
   smart truncation with ellipsis, never a wrap.

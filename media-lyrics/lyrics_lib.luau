@@ -15,25 +15,6 @@ local function trim(s)
 end
 lib.trim = trim
 
--- ── LRC parsing ─────────────────────────────────────────────────────────────
-
-function lib.fractionalSeconds(frac)
-  if not frac or frac == "" then return 0.0 end
-  local v = tonumber(frac) or 0
-  local n = #frac
-  if n == 1 then return v / 10.0 end
-  if n == 2 then return v / 100.0 end
-  return v / 1000.0
-end
-
-function lib.isMetadataLine(line)
-  local l = (line or ""):lower()
-  local basic = l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
-    or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
-    or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
-    or l:match("^%[offset%s*:") ~= nil
-  if basic then return true end
-  
 -- ── text measurement (shared with panel.luau / desktop.luau / widget.luau) ──
 local function toChars(text)
   local chars = {}
@@ -89,7 +70,25 @@ function lib.truncEm(text, capEm)
   return table.concat(out)
 end
 
-return lib.isNetEaseMetaLine(line)
+-- ── LRC parsing ─────────────────────────────────────────────────────────────
+
+function lib.fractionalSeconds(frac)
+  if not frac or frac == "" then return 0.0 end
+  local v = tonumber(frac) or 0
+  local n = #frac
+  if n == 1 then return v / 10.0 end
+  if n == 2 then return v / 100.0 end
+  return v / 1000.0
+end
+
+function lib.isMetadataLine(line)
+  local l = (line or ""):lower()
+  local basic = l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
+    or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
+    or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
+    or l:match("^%[offset%s*:") ~= nil
+  if basic then return true end
+  return lib.isNetEaseMetaLine(line)
 end
 
 function lib.looksLikeMalformedTimestamp(line)
@@ -771,7 +770,40 @@ function lib.activeIndex(lines, pos)
   return active
 end
 
--- Единый ключ трека ...
+-- Do two track *claims* refer to the same real track despite MPRIS
+-- metadata drift (title "Big Dawgs" -> "Big Dawgs (feat. Kalmi)", length 0 -> 190s)?
+-- Returns true only for the drift we want to collapse, NOT for distinct
+-- remixes: artist change or a non-prefix title change is a different track,
+-- and a suffix added after a known (non-zero) duration is also a different
+-- track.
+function lib.sameClaim(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  local function field(t, k)
+    local v = t[k]
+    if v == nil then return "" end
+    return tostring(v)
+  end
+  local function dur(t)
+    local d = t.durationSec or t.lengthSec
+    if d == nil and t.lengthUs ~= nil then d = (tonumber(t.lengthUs) or 0) / 1000000 end
+    local n = tonumber(d)
+    if not n or n < 0 then return 0 end
+    return n
+  end
+  local function norm(s) return trim(tostring(s or ""):lower()) end
+  local ta, tb = norm(field(a, "title")), norm(field(b, "title"))
+  local aa, ab = norm(field(a, "artist")), norm(field(b, "artist"))
+  if aa == "" or ab == "" or aa ~= ab then return false end
+  if ta == "" or tb == "" then return false end
+  if ta == tb then return true end
+  local prefix = (tb:sub(1, #ta) == ta) or (ta:sub(1, #tb) == tb)
+  if not prefix then return false end
+  local da, db = dur(a), dur(b)
+  -- at least one side must have unknown (zero) duration to collapse drift
+  if da ~= 0 and db ~= 0 then return false end
+  return true
+end
+
 function lib.trackKey(ident, title, artist, lengthUs)
   return tostring(ident or "") .. "|" .. tostring(title or "") .. "|"
     .. tostring(artist or "") .. "|"
