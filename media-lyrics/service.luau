@@ -42,8 +42,12 @@ end
 
 local function decode(s)
   if type(s) ~= "string" then return nil end
-  local ok, v = pcall(function() return decode(s) end)
-  if ok then return v end
+  -- pcall wrapper around the HOST decoder (a truncated/garbage body must not
+  -- kill the async callback). NB: the wrapped call is noctalia.json.decode -
+  -- wrapping `decode` itself recursed until the stack overflowed and EVERY
+  -- decode returned nil (caught by run_scenarios.lua scenario 1).
+  local ok, v = pcall(function() return noctalia.json.decode(s) end)
+  if ok and type(v) == "table" then return v end
   return nil
 end
 
