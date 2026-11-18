@@ -940,7 +940,7 @@ local function applyPlayer(f)
     local shuffle = parseBusctlVariant(f.shuffle) == true
     local loopStatus = parseBusctlVariant(f.loop_status) or "None"
 
-local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
+    local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
     local trackChanged = (not snapshot.hasPlayer) or (currentTrackKey ~= key)
     -- Collapse MPRIS metadata drift (e.g. "Big Dawgs" -> "Big Dawgs (feat. Kalmi)",
     -- artist "" -> "X", length 0 -> 190s) onto the same track: no reload.

@@ -255,6 +255,8 @@ do
   ok(lib.sameClaim({ title = "Big Dawgs", artist = "A", durationSec = 100 }, { title = "Big Dawgs (feat. Kalmi)", artist = "A", durationSec = 190 }) == false, "sameClaim does not collapse suffix with both durations known")
   ok(lib.sameClaim({ title = "Big Dawgs", artist = "A" }, { title = "Other", artist = "A" }) == false, "sameClaim rejects non-prefix title")
   ok(lib.sameClaim({ title = "T", artist = "A" }, { title = "T", artist = "B" }) == false, "sameClaim rejects artist change")
+  ok(lib.sameClaim({ title = "Big Dawgs", artist = "", durationSec = 0 }, { title = "Big Dawgs (feat. Kalmi)", artist = "Kalmi", durationSec = 190 }) == true, "sameClaim allows late artist (empty one side)")
+  ok(lib.sameClaim({ title = "Big Dawgs", artist = "A", durationSec = 100 }, { title = "Kalmi Song", artist = "B", durationSec = 200 }) == false, "sameClaim rejects rapid prev/next (distinct tracks)")
 end
 
 -- activeIndex tests
