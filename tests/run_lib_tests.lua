@@ -359,6 +359,18 @@ do
   ok(p ~= nil and p.artUrl == "file:///a.png", "parseMediaPlayerResponse returns artUrl")
 end
 
+-- parseMediaPlayerResponse unit normalization (the "1:25 / 0:00" regression)
+do
+  local a = lib.parseMediaPlayerResponse({ title = "T", lengthMs = 240000, positionMs = 85000 })
+  ok(a.lengthSec == 240 and a.posSec == 85, "lengthMs/positionMs -> seconds")
+  local b = lib.parseMediaPlayerResponse({ title = "T", lengthUs = 240000000 })
+  ok(b.lengthSec == 240, "lengthUs -> seconds")
+  local c = lib.parseMediaPlayerResponse({ title = "T", length = 240 })
+  ok(c.lengthSec == 240, "bare length in seconds stays seconds")
+  local d = lib.parseMediaPlayerResponse({ title = "T", length = 240000 })
+  ok(d.lengthSec == 240, "bare length in ms -> seconds")
+end
+
 -- interpPos clamp (the 3:18 / 3:16 class)
 do
   ok(lib.interpPos(218, 0, 0, false, 196) == 196, "interpPos clamps even a stale base")

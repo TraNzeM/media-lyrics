@@ -643,11 +643,37 @@ function lib.parseMediaPlayerResponse(resp)
     artist = table.concat(parts, ", ")
   end
   local album = g("album", "Album") or ""
-  local lengthSec = tonumber(g("lengthSec", "length", "Length", "duration", "durationSec")) or 0
-  -- length may be in microseconds
-  if lengthSec > 1e6 then lengthSec = lengthSec / 1e6 end
-  local posSec = tonumber(g("posSec", "position", "Position", "positionSec")) or 0
-  if posSec > 1e6 then posSec = posSec / 1e6 end
+  -- Units differ across shell versions: lengthSec/durationSec (seconds),
+  -- lengthMs/durationMs (milliseconds), lengthUs/length_us/mpris:length
+  -- (microseconds), or a bare length/duration in ANY of them. Normalize per
+  -- known key first; only the bare fallback uses a magnitude heuristic.
+  -- (A parsed length of 0 showed live as "1:25 / 0:00" on the sync path.)
+  local lengthSec = tonumber(g("lengthSec", "durationSec")) or 0
+  if lengthSec == 0 then
+    lengthSec = (tonumber(g("lengthMs", "durationMs")) or 0) / 1000
+  end
+  if lengthSec == 0 then
+    lengthSec = (tonumber(g("lengthUs", "length_us")) or 0) / 1e6
+  end
+  if lengthSec == 0 then
+    local raw = tonumber(g("length", "Length", "duration", "durationSec"))
+    if raw then
+      if raw > 1e6 then raw = raw / 1e6
+      elseif raw > 1e4 then raw = raw / 1000 end
+      lengthSec = raw
+    end
+  end
+  local posSec = tonumber(g("posSec", "positionSec")) or 0
+  if posSec == 0 then posSec = (tonumber(g("positionMs", "posMs")) or 0) / 1000 end
+  if posSec == 0 then posSec = (tonumber(g("positionUs", "position_us")) or 0) / 1e6 end
+  if posSec == 0 then
+    local raw = tonumber(g("position", "Position"))
+    if raw then
+      if raw > 1e6 then raw = raw / 1e6
+      elseif raw > 1e4 then raw = raw / 1000 end
+      posSec = raw
+    end
+  end
   local status = g("playback_status", "playbackStatus", "status", "Status") or ""
   local playing = (tostring(status):lower() == "playing") or (g("playing", "isPlaying") == true)
   local busName = g("bus_name", "busName", "playerBusName") or ""
