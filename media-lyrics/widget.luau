@@ -138,12 +138,8 @@ local function activeLyricLine(m)
   local lines = m.lyrics
   if type(lines) ~= "table" or #lines == 0 then return nil end
   local pos = tonumber(m.posSec) or 0
-  local idx = nil
-  for i, l in ipairs(lines) do
-    local t = tonumber(l.time) or -1
-    if t >= 0 and t <= pos then idx = i end
-  end
-  if idx == nil then idx = 1 end
+  local idx = lyrics_lib.activeIndex(lines, pos)
+  if idx < 1 then return nil end
   local text = lines[idx] and lines[idx].text or ""
   text = text:gsub("^%s+", ""):gsub("%s+$", "")
   if text == "" then return nil end

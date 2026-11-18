@@ -228,7 +228,10 @@ local function toChars(text)
 end
 local function charAdv(c)
   local o = string.byte(c) or 32
-  if o >= 0x80 then return 1.0 end                      -- CJK / emoji: full width
+  if o >= 0x80 then
+    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
+    return 0.58                                          -- other non-ASCII (Cyrillic etc)
+  end
   if c == " " then return 0.28 end
   if c == "i" or c == "l" or c == "I" then return 0.27 end
   if c == "m" then return 0.92 end
@@ -437,7 +440,9 @@ local function buildLyricsBody(s)
   if (s.lyricsStatus == "choose" or s.lyricsStatus == "ready") and #(s.lyrics or {}) > 0 then
     -- ready, or "choose" with the picker closed (or a picked variant live):
     -- render the karaoke/plain lyrics that are actually loaded.
-    if not s.synced then
+    local pos = interpPos(s)
+  local active = lyrics_lib.activeIndex(s.lyrics, pos)
+  if not s.synced then
       -- unsynced: static list inside a clipping scroll (a bare column does not
       -- clip its children), dimmed, centered, generous line spacing. The
       -- keyboard cursor still highlights a line (no seek — no timestamps).
@@ -478,9 +483,6 @@ local function buildLyricsBody(s)
     end
 
     -- synchronized: carousel around the playback line (karaoke fade ladder)
-  local pos = interpPos(s)
-  local active = lyrics_lib.activeIndex(s.lyrics, pos)
-
   -- Lyric class per line: font size / weight from the karaoke distance
   -- ladder, precomputed ONCE so the window budget and the render loop share
   -- the same values (they must never drift apart).

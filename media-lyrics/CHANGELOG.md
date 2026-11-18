@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cyrillic weighs about half an em per glyph instead of a full em.** `charAdv` now
+  returns 1.0 only for CJK/emoji (3+ byte sequences) and ~0.58 for other non-ASCII,
+  so Russian lyrics stop being truncated roughly twice too early. LRCLIB User-Agent
+  bumped to 1.0.2; test header now names lua 5.5.
 - **«Loading lyrics...» no longer sticks.** The 45 s watchdog now arms at every
   point `lyricsStatus` becomes `loading`, and MPRIS metadata drift (title suffix /
   length fill-in) is treated as the same track via `lyrics_lib.sameClaim`.

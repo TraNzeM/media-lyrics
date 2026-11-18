@@ -1,4 +1,5 @@
 --!nonstrict
+local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics compact mini panel: cover + current lyric line only.
 -- A lightweight always-on karaoke line (pinnable to the desktop) without the
 -- full transport/header chrome of the main panel. Reads the same "media"

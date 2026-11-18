@@ -98,7 +98,10 @@ end
 
 local function charAdv(c)
   local o = string.byte(c) or 32
-  if o >= 0x80 then return 1.0 end                      -- CJK / emoji: full width
+  if o >= 0x80 then
+    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
+    return 0.58                                          -- other non-ASCII (Cyrillic etc)
+  end
   if c == " " then return 0.28 end
   if c == "i" or c == "l" or c == "I" then return 0.27 end
   if c == "m" then return 0.92 end

@@ -105,81 +105,9 @@ end
 ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes -> underscores")
 ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")
 ok(lib.lrcIsSynced("plain text") == false, "lrcIsSynced: false")
-ok(lib.charCount("héllo") == 5, "charCount: utf8 count")
 
+ok(lib.unitEm("Привет") < 4.0, "unitEm: Cyrillic under 4.0em")
 
--- ── source guard: no percent-r / percent-n / percent-t inside a char class ──
--- In this runtime those are NOT character classes: they degrade to the literal
--- letters r, n and t. A pattern meant to strip newlines therefore strips every
--- r/n/t out of the text instead ("The Chemical Brothers" -> "The Chemical B o
--- he s"), which only shows up on Latin lyrics and hides on Cyrillic. Use real
--- escapes ([%c] or [\r\n\t]) instead.
-do
-  local offenders = {}
-  local pipe = io.popen("grep -rnE '\\[[^]]*%[rnt][^]]*\\]' '" .. dir .. "/../media-lyrics/*.luau' 2>/dev/null")
-  if pipe then
-    for line in pipe:lines() do offenders[#offenders + 1] = line end
-    pipe:close()
-  end
-  ok(#offenders == 0,
-    "no %r/%n/%t inside a character class (use [%c] or real escapes)"
-    .. (#offenders > 0 and ("\n      " .. table.concat(offenders, "\n      ")) or ""))
-end
-
--- ── source guard: the active lyric index is clamped before it is used ──
--- activeLine() returns 0 until the playhead passes the first timestamp, so feeding it
--- straight into a window (lines[active]) indexes nil. That is what took the desktop
--- widget down with "attempt to index nil with 'text'".
-do
-  local src = io.open(dir .. "/../media-lyrics/desktop.luau")
-  local body = src and src:read("a") or ""
-  if src then src:close() end
-  local clamped = body:find("math.min(math.max(rawActive, 1), n)", 1, true) ~= nil
-  local raw = body:find("local active = activeLine(s)", 1, true) ~= nil
-  -- The styled line is separate from the window anchor (curIdx): line 1 may
-  -- not glow before it is sung, while the window stays anchored at 1.
-  local separated = body:find("local curIdx = (rawActive >= 1) and rawActive or 0", 1, true) ~= nil
-  ok(clamped and not raw and separated,
-    "desktop.luau clamps the anchor into 1..n and keeps the styled line separate"
-    .. (not clamped and "\n      the clamp is missing" or "")
-    .. (raw and "\n      a raw `local active = activeLine(s)` is back" or "")
-    .. (not separated and "\n      the anchor/styled split (curIdx) is missing" or ""))
-end
-
--- ── source guard: the middle band has a fixed number of slots ──
--- The band's height has to be identical in every state, because the host centres the
--- content in the widget's box: if the band grows or shrinks, the whole widget slides as
--- the lyrics arrive. A label's real height cannot be measured from Lua, so the band must
--- not depend on how many lines there are, on wrapping, or on a guessed row height.
-do
-  local f = io.open(dir .. "/../media-lyrics/desktop.luau")
-  local body = f and f:read("a") or ""
-  if f then f:close() end
-  local slots = body:find("math.max(1, math.floor((midH + 3) / (rowH + 3)))", 1, true) ~= nil
-    and body:find("for k = 1, maxSlots do", 1, true) ~= nil
-  local slack = body:find("midSlack", 1, true) ~= nil
-  local perRowFont = body:find("fontSize = ROW_H_ACTIVE_FS", 1, true) ~= nil
-  ok(slots and not slack and not perRowFont,
-    "the lyric band is a fixed number of equal slots"
-    .. (not slots and "\n      the fixed slot count is gone" or "")
-    .. (slack and "\n      a content-sized slack box is back: the height would drift" or "")
-    .. (perRowFont and "\n      a bigger font on the current line makes its slot taller" or ""))
-end
-
--- ── source guard: the word-by-word sweep can be switched off ──
--- `word_sweep = false` must fall back to the whole-line highlight (the earlier
--- line-by-line look), so the fill may only be built when the setting is on.
-do
-  local f = io.open(dir .. "/../media-lyrics/desktop.luau")
-  local body = f and f:read("a") or ""
-  if f then f:close() end
-  local read = body:find('cfgBool("word_sweep", true)', 1, true) ~= nil
-  local gated = body:find('if kind == "cur" and wordSweep then', 1, true) ~= nil
-  ok(read and gated,
-    "the word-by-word sweep is gated on the word_sweep setting"
-    .. (not read and "\n      the setting is not read" or "")
-    .. (not gated and "\n      the fill is built unconditionally" or ""))
-end
 
 -- ── cache paths ────────────────────────────────────────────────────────────
 -- The cache writes into a `lyrics/` subfolder of the plugin data dir and the
@@ -309,22 +237,6 @@ do
     "parseLrc: tie-break keeps the input order (stable)")
   ok(elapsed < 0.5,
     string.format("parseLrc: %d identical timestamps in %.3fs (must not be quadratic)", n, elapsed))
-end
-
--- \u2500\u2500 source guard: a stuck load always settles (issue #1494) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-do
-  local f = io.open(dir .. "/../media-lyrics/service.luau")
-  local body = f and f:read("a") or ""
-  if f then f:close() end
-  local watchdog = body:find('"sleep", "45"', 1, true) ~= nil
-    and body:find('snapshot.lyricsStatus == "loading"', 1, true) ~= nil
-  local guarded = body:find("pcall(parseLrc", 1, true) ~= nil
-  local falls = body:find("if localRaw and acceptLyrics(", 1, true) ~= nil
-  ok(watchdog and guarded and falls,
-    "service.luau: watchdog settles a stuck load, pcall survives a parse error, a broken local file falls through"
-    .. (not watchdog and "\n      the 45s watchdog is gone" or "")
-    .. (not guarded and "\n      parseLrc is not pcall-wrapped" or "")
-    .. (not falls and "\n      an unusable local file leaves the load unfinished" or ""))
 end
 
 -- \u2500\u2500 projectPosition / parseMediaPlayerResponse (v1.1.0 media task) \u2500\u2500

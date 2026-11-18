@@ -16,7 +16,7 @@
 -- 150ms keeps the scroll smooth (~0.2 char per tick at 24px/s) without
 -- hammering MPRIS.
 local POLL_MS = 150
-local LRCLIB_UA = "media-lyrics/0.1 (Noctalia v5 plugin)"
+local LRCLIB_UA = "media-lyrics/1.0.2 (Noctalia v5 plugin)"
 
 -- Host-independent lyric logic (LRC parsing, NetEase placeholders/meta/rank,
 -- UTF-8 sanitizers) — extracted so it can be unit-tested without the host.
@@ -38,6 +38,13 @@ local function nowMs()
   local ok, v = pcall(function() return noctalia.nowMs() end)
   if ok and type(v) == "number" then return v end
   return os.time() * 1000
+end
+
+local function decode(s)
+  if type(s) ~= "string" then return nil end
+  local ok, v = pcall(function() return decode(s) end)
+  if ok then return v end
+  return nil
 end
 
 -- Player filtering (allowlist/blocklist). Each setting is a comma-separated
@@ -102,22 +109,6 @@ local isMetadataLine = lyrics_lib.isMetadataLine
 local looksLikeMalformedTimestamp = lyrics_lib.looksLikeMalformedTimestamp
 local parseLrc = lyrics_lib.parseLrc
 
-local function indexForTime(lyrics, positionSeconds)
-  if not snapshot.synced or positionSeconds == nil or positionSeconds < 0 then return -1 end
-  local lo, hi = 1, #lyrics
-  while lo < hi do
-    local mid = math.floor((lo + hi) / 2)
-    if lyrics[mid].time <= positionSeconds then lo = mid + 1 else hi = mid end
-  end
-  return lo - 1
-end
-
-local function timeForIndex(lyrics, idx)
-  if idx < 1 or idx > #lyrics then return -1 end
-  local t = lyrics[idx].time
-  if t >= 0 then return t end
-  return -1
-end
 
 -- ============================= cache / local lyrics =============================
 
@@ -230,7 +221,6 @@ local function finishEmpty()
   snapshot.lyricsProvider = ""
   snapshot.synced = false
   snapshot.lyricsError = ""
-  if currentTrackKey ~= "" then currentTrackKey = currentTrackKey end
   publish()
 end
 
@@ -251,7 +241,7 @@ local function tryWordUpgrade(artist, title, album, durationSec, key, gen, shown
   noctalia.runAsync({ "curl", "-sSf", "-m", "8", "-4",
     lrcmuxUrl(artist, title, album, durationSec) }, function(res)
     if gen ~= fetchGeneration or res.exitCode ~= 0 then return end
-    local data = type(res.stdout) == "string" and noctalia.json.decode(res.stdout) or nil
+    local data = type(res.stdout) == "string" and decode(res.stdout) or nil
     local track = type(data) == "table" and data.track or nil
     if type(data) ~= "table" or type(data.lines) ~= "table"
       or not lyrics_lib.trackMatches({ title = title, artist = artist,
@@ -276,6 +266,19 @@ local isPlaceholderLyrics = lyrics_lib.isPlaceholderLyrics
 
 -- chain: local dir -> embedded (xesam:asText) -> cache -> LRCLIB exact ->
 -- LRCLIB search -> NetEase fallback
+-- Watchdog (community-plugins issue #1494): armed wherever lyricsStatus becomes
+-- "loading" so a dead async callback (host CPU budget, guard drop) cannot leave
+-- the panel stuck on "Loading lyrics...". gen/key token checks prevent a stale
+-- watchdog from settling a newer load.
+local function armLoadWatchdog(gen, key)
+  noctalia.runAsync({ "sleep", "45" }, function()
+    if not (snapshot.lyricsStatus == "loading") then return end
+    if gen ~= nil and gen ~= fetchGeneration then return end
+    if key ~= nil and key ~= currentTrackKey then return end
+    finishError(noctalia.tr("service.lyrics-unreachable"))
+  end)
+end
+
 local function loadLyricsForTrack(artist, title, album, durationSec, key, embeddedText, trackUrl)
   fetchGeneration = fetchGeneration + 1
   local gen = fetchGeneration
@@ -286,16 +289,8 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   snapshot.lyricsStatus = "loading"
   publish()
 
-  -- Watchdog (community-plugins issue #1494): whatever stops an async callback
-  -- mid-flight — the host kills one that exceeds its 25 ms CPU budget — the
-  -- error unwinds past finishEmpty/finishError and the panel would stay on
-  -- "Loading lyrics..." until the track changes. A 45 s deadline settles THIS
-  -- load (gen-checked) with an explicit error instead.
-  noctalia.runAsync({ "sleep", "45" }, function()
-    if gen == fetchGeneration and snapshot.lyricsStatus == "loading" then
-      finishError(noctalia.tr("service.lyrics-unreachable"))
-    end
-  end)
+  -- Arm the 45 s watchdog for THIS load (gen + key token checks live inside).
+  armLoadWatchdog(gen, key)
 
   if trim(title) == "" then
     finishEmpty()
@@ -431,7 +426,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
           settle(true)
           return
         end
-        local data = type(resp.body) == "string" and noctalia.json.decode(resp.body) or nil
+        local data = type(resp.body) == "string" and decode(resp.body) or nil
         local songs = data and data.result and type(data.result.songs) == "table"
           and data.result.songs or nil
         if not songs or #songs == 0 then
@@ -465,7 +460,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
           httpGetH(lyricUrl, neteaseHeaders, function(resp)
             if gen ~= fetchGeneration then return end
             if resp.ok and type(resp.body) == "string" then
-              local d = noctalia.json.decode(resp.body)
+              local d = decode(resp.body)
               -- word-timed yrc first: the karaoke sweep rides on per-word times
               local yrc = type(d) == "table" and d.yrc and type(d.yrc.lyric) == "string"
                 and d.yrc.lyric or ""
@@ -517,7 +512,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     httpGet(lrcmuxUrl(artist, title, album, durationSec), function(resp)
       if gen ~= fetchGeneration then return end
       if resp.ok and type(resp.body) == "string" then
-        local data = noctalia.json.decode(resp.body)
+        local data = decode(resp.body)
         local track = type(data) == "table" and data.track or nil
         if type(data) == "table" and type(data.lines) == "table"
           and lyrics_lib.trackMatches({ title = title, artist = artist,
@@ -537,7 +532,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     if gen ~= fetchGeneration then return end
     local okData = nil
     if resp.ok and resp.status == 200 and type(resp.body) == "string" then
-      local data = noctalia.json.decode(resp.body)
+      local data = decode(resp.body)
       if type(data) == "table" and (trim(data.syncedLyrics or "") ~= "" or trim(data.plainLyrics or "") ~= "") then
         okData = { synced = trim(data.syncedLyrics or ""), plain = trim(data.plainLyrics or "") }
       end
@@ -548,7 +543,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       local plain = trim(okData.plain or "")
       if synced ~= "" then
         -- synced LRCLIB hit: done
-        acceptAndCache("LRCLIB", synced, plain)
+        if not acceptAndCache("LRCLIB", synced, plain) then
+          nextFn(stash)
+        end
       elseif plain ~= "" then
         -- LRCLIB has only untimed text: hunt for a synced copy on NetEase
         -- first; the plain text is the fallback if NetEase has nothing.
@@ -574,7 +571,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     httpGet(searchUrl, function(resp2)
       if gen ~= fetchGeneration then return end
       if resp2.ok and resp2.status == 200 and type(resp2.body) == "string" then
-        local list = noctalia.json.decode(resp2.body)
+        local list = decode(resp2.body)
         if type(list) == "table" and #list > 0 then
           -- Score every candidate; keep the top-scoring ones. If exactly one
           -- wins, accept it directly. If several tie, surface them in the
@@ -643,7 +640,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   -- the track: a stash wins, otherwise empty or unreachable.
   local function finalSettle(stash, isError)
     if stash then
-      acceptAndCache(stash.provider, stash.synced, stash.plain)
+      if not acceptAndCache(stash.provider, stash.synced, stash.plain) then
+        finishEmpty()
+      end
     elseif isError then
       finishError(noctalia.tr("service.lyrics-unreachable"))
     else
@@ -713,7 +712,7 @@ function openLyricChoices()
       if pickGen ~= variantPickGeneration then return end
       local cands = {}
       if result.exitCode == 0 and type(result.stdout) == "string" then
-        local list = noctalia.json.decode(result.stdout)
+        local list = decode(result.stdout)
         if type(list) == "table" then
           local seen = {}
           for _, c in ipairs(list) do
@@ -792,7 +791,7 @@ local function fetchEmbeddedLyrics(busName, cb)
     "org.mpris.MediaPlayer2.Player", "Metadata" }
   noctalia.runAsync(argv, function(r)
     if r.exitCode ~= 0 then cb("", "") return end
-    local payload = noctalia.json.decode(r.stdout or "")
+    local payload = decode(r.stdout or "")
     local outer = payload and payload.data
     if type(outer) ~= "table" then cb("", "") return end
     local inner = outer[1]
@@ -842,6 +841,7 @@ local ART_DIR = "/art"
 local ART_REVISION_SLOTS = 2 -- cover-0/cover-1: alternating slots dodge a stale read
 local artRevision = 0
 local artCache = {} -- remote url -> local path (per-session memo, avoids re-download)
+local artInflight = {} -- url -> true: in-flight download dedup (one per URL)
 
 local function isRemoteArt(url)
   return type(url) == "string" and (url:match("^https?://") ~= nil)
@@ -884,6 +884,11 @@ local function resolveArt(url, key, syncFn)
     syncFn(memo)
     return
   end
+  if artInflight[url] then
+    -- already downloading this exact URL: do not start a second copy
+    syncFn("")
+    return
+  end
   local dir = artDir()
   if not dir then
     syncFn("")
@@ -900,11 +905,11 @@ local function resolveArt(url, key, syncFn)
   local destination = artDest(ext)
   if not destination then return end
 
+  artInflight[url] = true
   noctalia.mkdirAll(dir)
   noctalia.download(url, destination, function(ok)
+    artInflight[url] = nil
     if not ok then return end
-    -- a newer track started while this download was in flight
-    if revision ~= artRevision then return end
     if not noctalia.fileExists(destination) then return end
     artCache[url] = destination
     -- same track still playing? then show the art we just fetched
@@ -935,8 +940,15 @@ local function applyPlayer(f)
     local shuffle = parseBusctlVariant(f.shuffle) == true
     local loopStatus = parseBusctlVariant(f.loop_status) or "None"
 
-    local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
+local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
     local trackChanged = (not snapshot.hasPlayer) or (currentTrackKey ~= key)
+    -- Collapse MPRIS metadata drift (e.g. "Big Dawgs" -> "Big Dawgs (feat. Kalmi)",
+    -- artist "" -> "X", length 0 -> 190s) onto the same track: no reload.
+    if trackChanged and snapshot.hasPlayer then
+      local oldClaim = { title = snapshot.title, artist = snapshot.artist, durationSec = snapshot.lengthSec }
+      local newClaim = { title = title, artist = artist, durationSec = lengthUs / 1e6 }
+      if lyrics_lib.sameClaim(oldClaim, newClaim) then trackChanged = false end
+    end
 
     -- art may be a remote URL: resolve to a local file (async) before rendering
     resolveArt(rawArtUrl, key, function(path) snapshot.artUrl = path end)
@@ -964,6 +976,9 @@ local function applyPlayer(f)
       invalidateLyrics()
       snapshot.lyricsStatus = "loading"
       publish()
+      -- Watchdog #1494 insurance for the fetchEmbeddedLyrics callback: if it
+      -- dies (host CPU budget / guard drop) loadLyricsForTrack is never reached.
+      armLoadWatchdog(nil, key)
       fetchEmbeddedLyrics(busName, function(raw, url)
         -- A stale callback from a PREVIOUS track must not re-claim its old
         -- key (rapid prev/next: this closure captured the old track's key and
@@ -975,6 +990,9 @@ local function applyPlayer(f)
         loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "", url or "")
       end)
     else
+      -- metadata drift collapsed onto the same track: stabilise the key so
+      -- the next poll does not re-evaluate drift against a stale key.
+      currentTrackKey = key
       publish()
     end
 end
@@ -1024,7 +1042,7 @@ local function refreshPlayer()
     end
 
     -- busctl --json=short wraps the reply: { type = "ba{sv}", data = [ found, fields ] }
-    local payload = noctalia.json.decode(result.stdout)
+    local payload = decode(result.stdout)
     local body = payload and payload.data
     if type(body) ~= "table" or type(body[1]) ~= "boolean" then return end
     if not body[1] or type(body[2]) ~= "table" then
@@ -1054,7 +1072,7 @@ local function refreshPlayer()
     if not playerAllowed(ident, busName) then
       noctalia.runAsync(GET_PLAYERS, function(res)
         if res.exitCode ~= 0 then clearPlayer() return end
-        local pl = noctalia.json.decode(res.stdout or "")
+        local pl = decode(res.stdout or "")
         -- GetPlayers returns aa{sv} wrapped as data = [ [player1, player2, ...] ]
         local list = pl and pl.data and pl.data[1]
         if type(list) ~= "table" then clearPlayer() return end
@@ -1080,22 +1098,13 @@ end
 local function busctlCall(method, argType, argValue)
   local argv = { "busctl", "--user", "call", "dev.noctalia.Mpris", "/dev/noctalia/Mpris",
     "dev.noctalia.Mpris", method }
-  local withResult = argType == nil and
-    (method == "NextActive" or method == "PreviousActive" or method == "PlayPauseActive")
   -- busctl requires the D-Bus signature for typed arguments ("Too few
   -- parameters for signature" otherwise); methods without args need none.
   if argType then
     argv[#argv + 1] = argType
     argv[#argv + 1] = tostring(argValue)
   end
-  local cb = nil
-  if withResult then
-    cb = function(result)
-      -- no-op: we refresh state after the call elsewhere; result is a boolean
-      -- handled flag we intentionally do not wire here
-    end
-  end
-  noctalia.runAsync(argv, cb)
+  noctalia.runAsync(argv)
 end
 
 -- Track navigation is a thin wrapper over the busctl command: the return value

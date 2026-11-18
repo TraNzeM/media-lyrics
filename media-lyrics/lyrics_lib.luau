@@ -33,7 +33,10 @@ end
 
 local function charAdv(c)
   local o = string.byte(c) or 32
-  if o >= 0x80 then return 1.0 end
+  if o >= 0x80 then
+    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
+    return 0.58                                          -- other non-ASCII (Cyrillic etc)
+  end
   if c == " " then return 0.28 end
   if c == "i" or c == "l" or c == "I" then return 0.27 end
   if c == "m" then return 0.92 end
@@ -68,6 +71,64 @@ function lib.truncEm(text, capEm)
     used = used + a
   end
   return table.concat(out)
+end
+
+function lib.wrap(text, capEm, maxLines)
+  if text == nil or text == "" then return text end
+  capEm = capEm or 1e9
+  if type(maxLines) ~= "number" or maxLines < 1 then maxLines = nil end
+  local words = {}
+  for w in (text .. " "):gmatch("(.-) ") do words[#words + 1] = w end
+  local out, cur, curEm = {}, "", 0
+  local function flush()
+    if cur ~= "" then out[#out + 1] = cur; cur, curEm = "", 0 end
+  end
+  for _, w in ipairs(words) do
+    local wEm = unitEm(w)
+    if maxLines and #out >= maxLines then break end
+    if wEm > capEm then
+      flush()
+      if maxLines and #out >= maxLines then break end
+      local acc, accEm = "", 0
+      for _, ch in ipairs(toChars(w)) do
+        local ce = charAdv(ch)
+        if acc ~= "" and accEm + ce > capEm then
+          out[#out + 1] = acc; acc, accEm = "", 0
+          if maxLines and #out >= maxLines then break end
+        end
+        if maxLines and #out >= maxLines then break end
+        acc = acc .. ch; accEm = accEm + ce
+      end
+      if acc ~= "" and not (maxLines and #out >= maxLines) then
+        out[#out + 1] = acc
+      end
+    elseif cur == "" then
+      cur, curEm = w, wEm
+    elseif curEm + 0.28 + wEm <= capEm then
+      cur = cur .. " " .. w; curEm = curEm + 0.28 + wEm
+    else
+      flush()
+      if maxLines and #out >= maxLines then break end
+      cur, curEm = w, wEm
+    end
+  end
+  if cur ~= "" and not (maxLines and #out >= maxLines) then
+    out[#out + 1] = cur
+  end
+  if maxLines and #out > maxLines then
+    -- keep first maxLines lines, last truncated
+    local res = {}
+    for i = 1, maxLines - 1 do res[#res+1] = out[i] end
+    res[#res+1] = lib.truncEm(out[maxLines], capEm)
+    out = res
+  elseif maxLines and #out == maxLines and cur == "" then
+    -- last already pushed? trunc if needed impossible; leave
+  end
+  -- If we have exactly maxLines and leftover words, truncate last line already? best-effort:
+  if maxLines and #out == maxLines then
+    out[maxLines] = lib.truncEm(out[maxLines], capEm)
+  end
+  return table.concat(out, "\n")
 end
 
 -- ── LRC parsing ─────────────────────────────────────────────────────────────
@@ -239,8 +300,6 @@ function lib.isNetEaseMetaLine(line)
   if body:match("^%[%x%x%x%x%]:") then return true end
   return false
 end
-lib.isCreditLine = lib.isNetEaseMetaLine
-
 
 function lib.stripNetEaseMeta(raw)
   local out = {}
@@ -317,20 +376,6 @@ end
 
 function lib.sanitizePart(s)
   return trim((s or ""):gsub('[%c/\\]', "_"))
-end
-
--- UTF-8 aware glyph count (never splits a sequence).
-function lib.charCount(s)
-  local i, n = 1, 0
-  while i <= #s do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
-  end
-  return n
 end
 
 -- ── word timing (enhanced LRC) ─────────────────────────────────────────────
@@ -558,11 +603,8 @@ function lib.sidecarLyricPath(uri)
 end
 
 -- aliases (various names callers/tests may use)
-lib.uriToPath = lib.fileUriToPath
-lib.decodeFileUri = lib.fileUriToPath
-lib.sidecarPath = lib.sidecarLyricPath
-lib.sidecarCandidate = lib.sidecarLyricPath
-lib.sidecarLyricsPath = lib.sidecarLyricPath
+-- aliases removed
+
 
 function lib.cachePaths(dataDir, artist, title)
   if not dataDir or dataDir == "" then return nil end
@@ -623,12 +665,7 @@ function lib.splitTitleArtist(title, artist)
     return title, artist
 end
 
-lib.fallbackArtistFromTitle = lib.splitTitleArtist
-lib.splitTrackTitle = lib.splitTitleArtist
-lib.splitArtistTitle = lib.splitTitleArtist
-lib.parseTitleArtist = lib.splitTitleArtist
-lib.extractArtistFromTitle = lib.splitTitleArtist
-lib.splitTitle = lib.splitTitleArtist
+-- split aliases removed
 
 -- Плавная проекция позиции: последнее известное положение + wall clock.
 -- nowMs / sampleMs в миллисекундах, lastPosSec — секунды; playing — bool;
@@ -793,7 +830,7 @@ function lib.sameClaim(a, b)
   local function norm(s) return trim(tostring(s or ""):lower()) end
   local ta, tb = norm(field(a, "title")), norm(field(b, "title"))
   local aa, ab = norm(field(a, "artist")), norm(field(b, "artist"))
-  if aa == "" or ab == "" or aa ~= ab then return false end
+  if aa ~= "" and ab ~= "" and aa ~= ab then return false end
   if ta == "" or tb == "" then return false end
   if ta == tb then return true end
   local prefix = (tb:sub(1, #ta) == ta) or (ta:sub(1, #tb) == tb)
@@ -802,6 +839,85 @@ function lib.sameClaim(a, b)
   -- at least one side must have unknown (zero) duration to collapse drift
   if da ~= 0 and db ~= 0 then return false end
   return true
+end
+
+function lib.normalizePlayer(raw)
+  raw = (type(raw) == "table") and raw or {}
+  if type(raw.data) == "table" and raw.type == nil then raw = raw.data end
+  local function unwrap(v)
+    if type(v) == "table" and v.data ~= nil then return v.data end
+    return v
+  end
+  local function g(...)
+    for _, k in ipairs({...}) do
+      local v = raw[k]
+      if v ~= nil then return v end
+    end
+    return nil
+  end
+  local title = unwrap(g("title", "Title"))
+  local artist = unwrap(g("artist", "Artist", "artists"))
+  if type(artist) == "table" then
+    local parts = {}
+    for _, a in ipairs(artist) do
+      if type(a) == "string" then parts[#parts+1] = a
+      elseif type(a) == "table" then parts[#parts+1] = a.name or a.text or "" end
+    end
+    artist = table.concat(parts, ", ")
+  end
+  title = tostring(title or "")
+  artist = tostring(artist or "")
+  local ft, fa = lib.splitTitleArtist(title, artist)
+  title, artist = ft, fa
+  local album = tostring(unwrap(g("album", "Album")) or "")
+  local artUrl = tostring(unwrap(g("artUrl", "art_url", "art")) or "")
+  local status = unwrap(g("status", "playback_status", "playbackStatus", "Status"))
+  local playing
+  local playingField = g("playing", "isPlaying")
+  if status ~= nil then playing = (tostring(status):lower() == "playing")
+  elseif playingField ~= nil then playing = (unwrap(playingField) == true)
+  else playing = false end
+  local lengthSec = tonumber(g("lengthSec", "durationSec"))
+  if not lengthSec then lengthSec = (tonumber(unwrap(g("lengthMs", "durationMs"))) or 0)/1000 end
+  if (lengthSec or 0) == 0 then lengthSec = (tonumber(unwrap(g("lengthUs", "length_us"))) or 0)/1e6 end
+  if (lengthSec or 0) == 0 then
+    local r = tonumber(unwrap(g("length", "Length", "duration")))
+    if r then if r > 1e6 then r = r/1e6 elseif r > 1e4 then r = r/1000 end; lengthSec = r end
+  end
+  lengthSec = lengthSec or 0
+  local posSec = tonumber(unwrap(g("posSec", "positionSec"))) or 0
+  if posSec == 0 then posSec = (tonumber(unwrap(g("positionMs", "posMs"))) or 0)/1000 end
+  if posSec == 0 then posSec = (tonumber(unwrap(g("positionUs", "position_us"))) or 0)/1e6 end
+  if posSec == 0 then
+    local r = tonumber(unwrap(g("position", "Position")))
+    if r then if r > 1e6 then r = r/1e6 elseif r > 1e4 then r = r/1000 end; posSec = r end
+  end
+  local busName = tostring(unwrap(g("bus_name", "busName", "playerBusName")) or "")
+  local identity = tostring(unwrap(g("identity", "playerName", "name")) or "")
+  local canSeekRaw = g("canSeek", "can_seek")
+  local canSeek
+  if canSeekRaw == nil then canSeek = true else canSeek = (unwrap(canSeekRaw) == true) end
+  local function honestCap(keys)
+    for _, k in ipairs(keys) do
+      local v = g(k)
+      if v ~= nil then return (unwrap(v) == true) end
+    end
+    return nil
+  end
+  local canGoNext = honestCap({"can_go_next", "canGoNext"})
+  local canGoPrev = honestCap({"can_go_previous", "canGoPrevious"})
+  local shuffleRaw = g("shuffle", "shuffleStatus")
+  local shuffle = (shuffleRaw == nil) and nil or (unwrap(shuffleRaw) == true)
+  local loopRaw = g("loop_status", "loopStatus")
+  local loopStatus = (loopRaw == nil) and nil or tostring(unwrap(loopRaw))
+  return {
+    title = title, artist = artist, album = album, artUrl = artUrl,
+    status = tostring(status or ""), playing = (playing == true),
+    lengthSec = lengthSec, posSec = posSec,
+    busName = busName, identity = identity,
+    canSeek = canSeek, canGoNext = canGoNext, canGoPrev = canGoPrev,
+    shuffle = shuffle, loopStatus = loopStatus,
+  }
 end
 
 function lib.trackKey(ident, title, artist, lengthUs)
