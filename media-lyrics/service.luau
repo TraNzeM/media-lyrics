@@ -941,9 +941,16 @@ local function applyPlayer(f)
     local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
     local busName = parseBusctlVariant(f.bus_name) or ""
 
-    local canSeek = parseBusctlVariant(f.can_seek) == true
-    local canNext = parseBusctlVariant(f.can_go_next) == true
-    local canPrev = parseBusctlVariant(f.can_go_previous) == true
+    -- Transport caps: unknown = enabled (MPRIS caps are optional; the command
+    -- path refreshes them after the call). Strict "== true" disabled both
+    -- buttons whenever the host omitted the fields (owner report).
+    local function cap(v)
+      if v == nil then return true end
+      return v == true
+    end
+    local canSeek = cap(parseBusctlVariant(f.can_seek))
+    local canNext = cap(parseBusctlVariant(f.can_go_next))
+    local canPrev = cap(parseBusctlVariant(f.can_go_previous))
     local shuffle = parseBusctlVariant(f.shuffle) == true
     local loopStatus = parseBusctlVariant(f.loop_status) or "None"
 

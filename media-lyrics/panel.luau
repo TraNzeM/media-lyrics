@@ -132,11 +132,9 @@ local function queueSeek(sec)
   seekPending = sec
   seekQueuedAt = nowMs()
   sendCmd("seekTo", { sec = sec })
-  pcall(function()
-    if noctalia and noctalia.osd and type(noctalia.osd.show) == "function" then
-      noctalia.osd.show("media-skip-forward", sec, { duration = 1200 })
-    end
-  end)
+  -- No OSD popup here: the seek slider already shows the target position and
+  -- the overlay ("icon + seconds" over the screen) read as a surprise on every
+  -- scrub (owner: "что это сверху всплывает с приведением и цифрами").
 end
 
 -- marquee phase state lives at module scope: buildInfoRow runs on EVERY

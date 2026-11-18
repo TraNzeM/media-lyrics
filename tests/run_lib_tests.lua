@@ -113,6 +113,16 @@ do
     "desktop.luau declares ADV_SPACE from the shared width table")
 end
 
+-- Transport caps policy: unknown = enabled (the host omits them on the sync
+-- path; strict "== true" disabled next/prev everywhere - owner report)
+do
+  local p = lib.parseMediaPlayerResponse({ title = "T" })
+  ok(p.canGoNext == true and p.canGoPrev == true and p.canSeek == true,
+    "caps: unknown -> enabled (optimistic transport)")
+  local q = lib.parseMediaPlayerResponse({ title = "T", canGoNext = false, canGoPrev = false })
+  ok(q.canGoNext == false and q.canGoPrev == false, "caps: explicit false is respected")
+end
+
 -- ── sanitizePart / lrcIsSynced / charCount ─────────────────────────────────
 ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes -> underscores")
 ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")

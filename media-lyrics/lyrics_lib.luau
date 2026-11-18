@@ -771,6 +771,12 @@ function lib.parseMediaPlayerResponse(resp)
   local busName = g("bus_name", "busName", "playerBusName") or ""
   local ident = g("identity", "playerName", "name") or ""
   local canSeek = (g("canSeek", "can_seek") == nil) and true or (g("canSeek", "can_seek") == true)
+  -- Transport caps are OPTIONAL in MPRIS and several hosts omit them. Unknown
+  -- means ENABLED (optimistic): Next/Previous are near-universal and the
+  -- command path refreshes the caps after the call. Treating "unknown" as "no"
+  -- silently disabled both buttons on every sync-path player (owner report).
+  local canGoNext = (g("canGoNext", "can_go_next") == nil) and true or (g("canGoNext", "can_go_next") == true)
+  local canGoPrev = (g("canGoPrev", "can_go_previous") == nil) and true or (g("canGoPrev", "can_go_previous") == true)
   local artUrl = g("artUrl", "art_url", "art", "mpris:artUrl", "artUrlMs") or ""
   return {
     title = tostring(title),
@@ -784,6 +790,8 @@ function lib.parseMediaPlayerResponse(resp)
     busName = tostring(busName),
     identity = tostring(ident),
     canSeek = canSeek,
+    canGoNext = canGoNext,
+    canGoPrev = canGoPrev,
   }
 end
 
