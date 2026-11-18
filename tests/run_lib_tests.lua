@@ -4,8 +4,8 @@
 -- placeholder / ranking sanitizers that feed the lyric chain.
 
 -- Resolve lyrics_lib relative to THIS file (robust to the invoking cwd:
--- both `lua5.4 tests/run_lib_tests.lua` from the repo root and
--- `lua5.4 run_lib_tests.lua` from tests/ must work).
+-- both `lua tests/run_lib_tests.lua` from the repo root and
+-- `lua run_lib_tests.lua` from tests/ must work).
 local script_path = debug.getinfo(1, "S").source:sub(2)
 local dir = script_path:match("^(.*)[/\\][^/\\]+%.lua$") or "."
 package.path = dir .. "/../media-lyrics/?.luau;" .. dir .. "/media-lyrics/?.luau;"
