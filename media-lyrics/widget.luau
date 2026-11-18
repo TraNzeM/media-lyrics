@@ -27,7 +27,6 @@ local glyphPause = "player-pause"
 
 local GAP = 6
 local FONT_PX = 12
-local CHAR_PX = FONT_PX * 0.62     -- ~7.4 px per char (est., see above)
 local SCROLL_TICKS = 2             -- advance one char every N update ticks
 
 -- Which panel preset to open (panel_size plugin setting).
@@ -74,36 +73,7 @@ local function widgetOptions()
   }
 end
 
--- ── utf-8 helpers (char boundaries, never split a sequence) ─────────────────
-
-local function charCount(s)
-  local i, n = 1, 0
-  while i <= #s do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
-  end
-  return n
-end
-
 local toChars = lyrics_lib.toChars
-
--- First maxChars characters (UTF-8 safe).
-local function charPrefix(s, maxChars)
-  local i, n = 1, 0
-  while i <= #s and n < maxChars do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
-  end
-  return s:sub(1, i - 1)
-end
 
 -- ── text (build + scroll) ───────────────────────────────────────────────────
 

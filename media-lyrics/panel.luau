@@ -1158,20 +1158,3 @@ function onKey(chord, pressed)
     seekCursor()
   end
 end
-
--- Docs say onScroll is a bar-widget callback, but declare it anyway: if the
--- host delivers wheel events to panels, this makes wheel scrolling step the
--- lyric cursor. Harmless no-op otherwise.
-function onScroll(axis, steps, startsGesture)
-  if axis ~= "vertical" or startsGesture then return end
-  local dir = (steps or 0) > 0 and 1 or -1
-  moveCursor(dir)
-end-- Idle dim registration (noctalia.idle.watch, API 35): dim the widget surface
--- when the host reports idle. Guarded so older shells keep working.
-pcall(function()
-  if noctalia and noctalia.idle and type(noctalia.idle.watch) == "function" then
-    noctalia.idle.watch(function(idle)
-      noctalia.state.set("idle_dimmed", idle == true)
-    end)
-  end
-end)

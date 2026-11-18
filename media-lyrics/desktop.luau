@@ -511,8 +511,4 @@ function onFrameTick(_deltaMs)
   render()
 end
 
-function onOpen() -- not a panel, but harmless if the host ever calls it
-  render()
-end
-
 render()
