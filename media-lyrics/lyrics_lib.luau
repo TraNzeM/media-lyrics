@@ -127,6 +127,18 @@ local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌�
 lib.NETEASE_PLACEHOLDERS = NETEASE_PLACEHOLDERS
 
 function lib.isPlaceholderLyrics(raw)
+  raw = raw or ""
+  -- A payload made ENTIRELY of metadata/credit rows (raw word-timing JSON,
+  -- 作曲-style credit tags) is not lyrics: drop it and keep the lookup chain
+  -- hunting. Mixed payloads fall through and are filtered per line in parseLrc.
+  local nonEmpty, allMeta = 0, true
+  for line in raw:gmatch("[^\n]+") do
+    if line:match("%S") then
+      nonEmpty = nonEmpty + 1
+      if not lib.isNetEaseMetaLine(line) then allMeta = false end
+    end
+  end
+  if nonEmpty > 0 and allMeta then return true end
   -- Byte-safe sanitize: multibyte chars must NOT live inside a Lua character
   -- class together with ASCII punctuation — it corrupts UTF-8 bytes. Strip
   -- timestamps + ASCII punctuation first, then full-width chars literally.
