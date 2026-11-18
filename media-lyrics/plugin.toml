@@ -67,7 +67,7 @@ default = "~/.local/share/media-lyrics"
 
 # Order of the online lyric providers, comma separated: the first one is asked
 # first. A plain (untimed) hit is kept as a fallback and used only when nothing
-# synced turns up anywhere. Ids: lrclib, netease. Unknown ids are ignored and
+# synced turns up anywhere. Ids: lrcmux, lrclib, netease. Unknown ids are ignored and
 # omitted ones keep their default place at the end, so a partial list never
 # drops a provider.
 [[setting]]

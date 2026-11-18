@@ -287,6 +287,8 @@ local function _wrapLyricImpl(text, fontSize, fontWeight, reserved)
 end
 
 local _wrapCache = {}
+local _wrapCacheN = 0
+local WRAP_CACHE_MAX = 512 -- bounded: a long session must not grow it forever
 local function wrapLyric(text, fontSize, fontWeight, reserved)
   if text == nil or text == "" then return text end
   local sz = noctalia.getConfig("panel_size") or "medium"
@@ -294,7 +296,12 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   local c = _wrapCache[key]
   if c ~= nil then return c end
   local r = _wrapLyricImpl(text, fontSize, fontWeight, reserved)
+  if _wrapCacheN >= WRAP_CACHE_MAX then
+    _wrapCache = {}
+    _wrapCacheN = 0
+  end
   _wrapCache[key] = r
+  _wrapCacheN = _wrapCacheN + 1
   return r
 end
 

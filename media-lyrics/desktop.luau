@@ -155,13 +155,20 @@ local function _wrapLyricImpl(text, fontSize, maxW)
 end
 
 local _wrapCache = {}
+local _wrapCacheN = 0
+local WRAP_CACHE_MAX = 512 -- bounded: a long session must not grow it forever
 local function wrapLyric(text, fontSize, maxW)
   if text == nil or text == "" then return text end
   local key = (text or "") .. "\x1f" .. tostring(fontSize) .. "\x1f" .. tostring(maxW)
   local c = _wrapCache[key]
   if c ~= nil then return c end
   local r = _wrapLyricImpl(text, fontSize, maxW)
+  if _wrapCacheN >= WRAP_CACHE_MAX then
+    _wrapCache = {}
+    _wrapCacheN = 0
+  end
   _wrapCache[key] = r
+  _wrapCacheN = _wrapCacheN + 1
   return r
 end
 

@@ -1,5 +1,5 @@
 -- media-lyrics tests: unit tests for the pure, host-independent logic in
--- lyrics_lib.luau. Run with:  lua5.4 tests/run_lib_tests.lua
+-- lyrics_lib.luau. Run with:  lua tests/run_lib_tests.lua
 -- Exit code 0 = all pass. No Noctalia host, no network — purely the parsing /
 -- placeholder / ranking sanitizers that feed the lyric chain.
 
