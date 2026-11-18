@@ -94,13 +94,8 @@ local function nowMs()
 end
 
 local function interpPos(s)
-  -- interpolate position between service polls for smooth lyrics
   if not s then return 0 end
-  if not s.playing then return s.posSec or 0 end
-  local elapsed = (lastSnapMs > 0) and ((nowMs() - lastSnapMs) / 1000) or 0
-  local p = (s.posSec or 0) + elapsed
-  if s.lengthSec and s.lengthSec > 0 and p > s.lengthSec then p = s.lengthSec end
-  return p
+  return lyrics_lib.interpPos(s.posSec, lastSnapMs, nowMs(), s.playing, s.lengthSec)
 end
 
 local function fmtTime(sec)

@@ -27,11 +27,13 @@ function lib.fractionalSeconds(frac)
 end
 
 function lib.isMetadataLine(line)
-  local l = line:lower()
-  return l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
+  local l = (line or ""):lower()
+  local basic = l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
     or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
     or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
     or l:match("^%[offset%s*:") ~= nil
+  if basic then return true end
+  return lib.isNetEaseMetaLine(line)
 end
 
 function lib.looksLikeMalformedTimestamp(line)
@@ -155,6 +157,24 @@ local NETEASE_META = {
 }
 lib.NETEASE_META = NETEASE_META
 
+function lib.isNetEaseMetaLine(line)
+  local text = trim(line or "")
+  if text == "" then return false end
+  if text:match("^%s*{") then return true end
+  local body = text:gsub("^%[%d+:%d+%.?%d*%]%s*", "")
+  for _, pp in ipairs(NETEASE_META) do
+    if body:match(pp) then return true end
+  end
+  -- Credit tags like "[4F5C][66F2]: ..." (作曲:) come as bracketed CJK code
+  -- points. Match the OBSERVED shapes (two tags in a row, or one tag followed
+  -- by a colon) - a lone "[Beef]" in a lyric must NOT be eaten.
+  if body:match("^%[%x%x%x%x%]%[%x%x%x%x%]") then return true end
+  if body:match("^%[%x%x%x%x%]:") then return true end
+  return false
+end
+lib.isCreditLine = lib.isNetEaseMetaLine
+
+
 function lib.stripNetEaseMeta(raw)
   local out = {}
   for line in (raw .. "\n"):gmatch("(.-)\n") do
@@ -165,6 +185,7 @@ function lib.stripNetEaseMeta(raw)
       for _, p in ipairs(NETEASE_META) do
         if body:match(p) then isMeta = true break end
       end
+      if not isMeta and lib.isNetEaseMetaLine(text) then isMeta = true end
       if not isMeta then out[#out + 1] = text end
     end
   end
@@ -545,18 +566,42 @@ lib.splitTitle = lib.splitTitleArtist
 -- Плавная проекция позиции: последнее известное положение + wall clock.
 -- nowMs / sampleMs в миллисекундах, lastPosSec — секунды; playing — bool;
 -- lengthSec — опциональный верхний предел (cap).
-function lib.projectPosition(lastPosSec, sampleMs, nowMs, playing, lengthSec)
+function lib.projectPosition(lastPosSec, sampleMs, nowMsV, playing, lengthSec)
   lastPosSec = tonumber(lastPosSec) or 0
-  sampleMs = tonumber(sampleMs) or nowMs or 0
-  nowMs = tonumber(nowMs) or sampleMs
-  if not playing then return lastPosSec end
-  local delta = (nowMs - sampleMs) / 1000.0
-  if delta < 0 then delta = 0 end
-  local pos = lastPosSec + delta
-  if type(lengthSec) == "number" and lengthSec > 0 and pos > lengthSec then
-    pos = lengthSec
+  sampleMs = tonumber(sampleMs) or nowMsV or 0
+  nowMsV = tonumber(nowMsV) or sampleMs
+  local len = tonumber(lengthSec) or 0
+  local pos = lastPosSec
+  if playing then
+    local delta = (nowMsV - sampleMs) / 1000.0
+    if delta < 0 then delta = 0 end
+    pos = lastPosSec + delta
   end
+  -- The display must NEVER exceed the duration (the 3:18 / 3:16 class) -
+  -- clamped on every path, including a stale base while paused.
+  if len > 0 and pos > len then pos = len end
   return pos
+end
+
+-- Унифицированный интерполятор позиции для всех entry (panel/panel-mini/desktop).
+-- Принимает либо таблицу состояния s, либо позиционные аргументы
+-- (lastPosSec, sampleMs, nowMs, playing, lengthSec) как projectPosition.
+function lib.interpPos(...)
+  local args = {...}
+  if type(args[1]) == "table" then
+    local s = args[1]
+    local nowOverride = args[2]
+    local nowMsV = nowOverride
+    if type(nowMsV) ~= "number" then
+      nowMsV = 0
+      pcall(function() nowMsV = noctalia.nowMs() end)
+      if type(nowMsV) ~= "number" or nowMsV <= 0 then nowMsV = os.time() * 1000 end
+    end
+    local sampleMs = s.sampleMs or s.posAtMs or s.lastSnapMs or 0
+    if not sampleMs or sampleMs == 0 then sampleMs = nowMsV end
+    return lib.projectPosition(s.posSec or s.position or s.pos or 0, sampleMs, nowMsV, s.playing, s.lengthSec or s.length or s.duration or s.durationSec)
+  end
+  return lib.projectPosition(args[1], args[2], args[3], args[4], args[5])
 end
 
 -- Разбор ответа noctalia.mediaPlayer() (plugin_api 51): tolerant, не ломается
@@ -596,10 +641,12 @@ function lib.parseMediaPlayerResponse(resp)
   local busName = g("bus_name", "busName", "playerBusName") or ""
   local ident = g("identity", "playerName", "name") or ""
   local canSeek = (g("canSeek", "can_seek") == nil) and true or (g("canSeek", "can_seek") == true)
+  local artUrl = g("artUrl", "art_url", "art", "mpris:artUrl", "artUrlMs") or ""
   return {
     title = tostring(title),
     artist = tostring(artist),
     album = tostring(album),
+    artUrl = tostring(artUrl),
     lengthSec = lengthSec,
     posSec = posSec,
     playing = playing,
@@ -628,6 +675,13 @@ function lib.activeIndex(lines, pos)
     end
   end
   return active
+end
+
+-- Единый ключ трека ...
+function lib.trackKey(ident, title, artist, lengthUs)
+  return tostring(ident or "") .. "|" .. tostring(title or "") .. "|"
+    .. tostring(artist or "") .. "|"
+    .. tostring(math.floor((tonumber(lengthUs) or 0) + 0.5))
 end
 
 return lib

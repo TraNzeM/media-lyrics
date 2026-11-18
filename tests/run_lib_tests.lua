@@ -325,6 +325,8 @@ do
   ok(p ~= nil and p.title == "T" and p.artist == "A, B" and p.playing == true, "parseMediaPlayerResponse handles list artist + playing")
   ok(p.lengthSec == 120 and p.posSec == 5 and p.busName == "org.mpris", "parseMediaPlayerResponse converts microsecond fields")
   ok(lib.parseMediaPlayerResponse(nil) == nil, "parseMediaPlayerResponse rejects non-table")
+  ok(lib.trackKey("zen", "T", "A", 120000000.4) == "zen|T|A|120000000", "trackKey rounds lengthUs to integer")
+  ok(lib.trackKey("zen", "T", "A", 100) == "zen" .. "|" .. "T" .. "|" .. "A" .. "|" .. "100", "trackKey concatenates fields")
 end
 
 -- activeIndex tests
@@ -339,6 +341,30 @@ do
   local plain = { {time=-1}, {time=-1} }
   ok(lib.activeIndex(plain, 100) == -1, "activeIndex plain never active")
   ok(lib.activeIndex({}, 5) == -1, "activeIndex empty -> -1")
+end
+
+-- NetEase meta/credit filtering (raw JSON rows, credit tags)
+do
+  ok(lib.isNetEaseMetaLine('{"t":1000,"c":[{"tx":"x"}]}') == true, "JSON word-timing row is meta")
+  ok(lib.isNetEaseMetaLine("[4F5C][66F2]: Axel Demarbaix") == true, "bracketed CJK credit tags are meta")
+  ok(lib.isNetEaseMetaLine("[4F5C]: composer") == true, "single tag + colon is meta")
+  ok(lib.isNetEaseMetaLine("Just be beside me") == false, "plain lyric line is not meta")
+  ok(lib.isNetEaseMetaLine("[Beef] I love you") == false, "lone hex-looking bracket in lyrics survives")
+  ok(lib.isPlaceholderLyrics('{"t":1000,"c":[{"tx":"x"}]}') == true, "placeholder filter covers JSON rows")
+end
+
+-- parseMediaPlayerResponse exposes artUrl (sync path renders cover from it)
+do
+  local p = lib.parseMediaPlayerResponse({ title = "T", artUrl = "file:///a.png", identity = "zen" })
+  ok(p ~= nil and p.artUrl == "file:///a.png", "parseMediaPlayerResponse returns artUrl")
+end
+
+-- interpPos clamp (the 3:18 / 3:16 class)
+do
+  ok(lib.interpPos(218, 0, 0, false, 196) == 196, "interpPos clamps even a stale base")
+  local p = lib.projectPosition(190, 0, 10000, true, 196)
+  ok(p == 196, "projectPosition clamps to lengthSec")
+  ok(lib.projectPosition(5, 0, 1000, true, 0) == 6, "projectPosition without length runs free")
 end
 
 print(string.format("\n%d passed, %d failed", passed, failed))

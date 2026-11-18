@@ -231,7 +231,12 @@ local function posNow(s)
   local ok, p = pcall(function() return noctalia.mediaPlayer() end)
   if ok and type(p) == "table" then
     local ms = tonumber(p.positionMs)
-    if ms and ms >= 0 then return ms / 1000 end
+    if ms and ms >= 0 then
+      local pos = ms / 1000
+      local len = tonumber(s and s.lengthSec) or 0
+      if len > 0 and pos > len then pos = len end
+      return pos
+    end
   end
   return interpPos(s)
 end

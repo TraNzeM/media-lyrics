@@ -184,6 +184,10 @@ end
 -- ============================= lyrics pipeline =============================
 
 local currentTrackKey = ""
+
+local function snapshotKey()
+  return lyrics_lib.trackKey(snapshot.playerName, snapshot.title, snapshot.artist, snapshot.lengthSec * 1e6)
+end
 local fetchGeneration = 0
 -- Lyrics embedded in the player's own MPRIS metadata (xesam:asText), cached
 -- per track key: the aggregator does not forward the field, so we fetch it
@@ -744,8 +748,7 @@ end
 function applyLyricVariant(idx)
   if idx == 0 then
     -- "Default": re-run the automatic chain for this track.
-    local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
-      .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+    local key = snapshotKey()
     snapshot.lyricsVariantIndex = 0
     loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key,
       (embeddedCacheKey == key) and embeddedCache or "")
@@ -757,8 +760,7 @@ function applyLyricVariant(idx)
   if synced == "" and plain == "" then return end -- nothing to apply
   -- Same key format as refreshPlayer (lengthUs integer), so the 150 ms poll
   -- keeps treating this track as UNCHANGED and does not restart the chain.
-  local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
-    .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+  local key = snapshotKey()
   local body, extra = synced, plain
   if synced == "" then body, extra = plain, "" end
   if acceptLyrics("LRCLIB", body, extra, key) then
@@ -933,7 +935,7 @@ local function applyPlayer(f)
     local shuffle = parseBusctlVariant(f.shuffle) == true
     local loopStatus = parseBusctlVariant(f.loop_status) or "None"
 
-    local key = ident .. "|" .. title .. "|" .. artist .. "|" .. tostring(lengthUs)
+    local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
     local trackChanged = (not snapshot.hasPlayer) or (currentTrackKey ~= key)
 
     -- art may be a remote URL: resolve to a local file (async) before rendering
@@ -978,7 +980,34 @@ local function applyPlayer(f)
 end
 
 local function refreshPlayer()
-  -- The in-flight guard must SELF-HEAL: when the async callback is lost —
+  -- Sync path: noctalia.mediaPlayer() (plugin_api 51) — без busctl и колбэка.
+  do
+    local ok, resp = pcall(function() return noctalia.mediaPlayer() end)
+    if ok then
+      local n = lyrics_lib.parseMediaPlayerResponse(resp)
+      if n and (n.identity ~= "" or n.busName ~= "" or n.title ~= "") then
+        local f = {
+          title = { type = "s", data = n.title },
+          artists = { type = "s", data = n.artist },
+          album = { type = "s", data = n.album },
+          art_url = { type = "s", data = n.artUrl or "" },
+          playback_status = { type = "s", data = n.playing and "Playing" or "Paused" },
+          length_us = { type = "x", data = math.floor((n.lengthSec or 0) * 1e6 + 0.5) },
+          position_us = { type = "x", data = math.floor((n.posSec or 0) * 1e6 + 0.5) },
+          identity = { type = "s", data = n.identity },
+          bus_name = { type = "s", data = n.busName },
+          can_seek = { type = "b", data = n.canSeek == true },
+          can_go_next = { type = "b", data = true },
+          can_go_previous = { type = "b", data = true },
+          shuffle = { type = "b", data = false },
+          loop_status = { type = "s", data = "None" },
+        }
+        applyPlayer(f)
+        return
+      end
+    end
+  end
+  -- The in-flight guard must SELF-HEAL... when the async callback is lost —
   -- host spawn saturation during a burst of track flips — a plain boolean
   -- stayed set forever, the poll died and the snapshot froze on one track
   -- while the interpolated clock kept running (owner: "плагин завис на треке,
@@ -1123,8 +1152,7 @@ noctalia.state.watch("panel_req", function(value)
     refreshPlayer()
   elseif value.action == "reloadLyrics" then
     -- same track key format as refreshPlayer (lengthUs integer, not float)
-    local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
-      .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+    local key = snapshotKey()
     loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key,
       (embeddedCacheKey == key) and embeddedCache or "")
   elseif value.action == "openLyricChoices" then

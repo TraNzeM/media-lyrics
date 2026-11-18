@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cover on the walked-past track while the clock kept running past its end. The poll
   now re-arms itself after 5 s, and a late lyrics callback from an older track can no
   longer glue the panel to that track.
+- **Playback position never overruns the track duration.** The interpolated clock
+  (snapshot + wall time) is capped to the track length in every entry, for both the
+  timestamp label and the progress bar, including a frozen/dead `playing=true`.
 - **Cover fallback no longer renders as an empty square.** The fallback box used to
   carry a `disc` glyph as a child and an `align` prop, which the host does not
   support on `ui.box` (it dropped the child every tick and spam-logged `box`
