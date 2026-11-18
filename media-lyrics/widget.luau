@@ -91,7 +91,7 @@ local function activeLyricLine(m)
   -- lyricsStatus "choose" = the variant picker published a list; lyrics may
   -- still be live (a picked variant or default kept), so accept it too.
   if m == nil then return nil end
-  if m.lyricsStatus ~= "ready" and m.lyricsStatus ~= "choose" then return nil end
+  if not lyrics_lib.isLyricsShown(m.lyricsStatus) then return nil end
   if not m.synced then return nil end
   local lines = m.lyrics
   if type(lines) ~= "table" or #lines == 0 then return nil end

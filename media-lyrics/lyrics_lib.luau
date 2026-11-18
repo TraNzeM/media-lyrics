@@ -756,6 +756,13 @@ function lib.activeIndex(lines, pos)
   return active
 end
 
+-- Should the lyrics area show loaded lyrics for this status? Single source of
+-- truth for the "ready or choose-with-lyrics" rule every surface re-implemented
+-- (the audits counted three different spellings).
+function lib.isLyricsShown(status)
+  return status == "ready" or status == "choose"
+end
+
 -- Do two track *claims* refer to the same real track despite MPRIS
 -- metadata drift (title "Big Dawgs" -> "Big Dawgs (feat. Kalmi)", length 0 -> 190s)?
 -- Returns true only for the drift we want to collapse, NOT for distinct
@@ -790,86 +797,9 @@ function lib.sameClaim(a, b)
   return true
 end
 
-function lib.normalizePlayer(raw)
-  raw = (type(raw) == "table") and raw or {}
-  if type(raw.data) == "table" and raw.type == nil then raw = raw.data end
-  local function unwrap(v)
-    if type(v) == "table" and v.data ~= nil then return v.data end
-    return v
-  end
-  local function g(...)
-    for _, k in ipairs({...}) do
-      local v = raw[k]
-      if v ~= nil then return v end
-    end
-    return nil
-  end
-  local title = unwrap(g("title", "Title"))
-  local artist = unwrap(g("artist", "Artist", "artists"))
-  if type(artist) == "table" then
-    local parts = {}
-    for _, a in ipairs(artist) do
-      if type(a) == "string" then parts[#parts+1] = a
-      elseif type(a) == "table" then parts[#parts+1] = a.name or a.text or "" end
-    end
-    artist = table.concat(parts, ", ")
-  end
-  title = tostring(title or "")
-  artist = tostring(artist or "")
-  local ft, fa = lib.splitTitleArtist(title, artist)
-  title, artist = ft, fa
-  local album = tostring(unwrap(g("album", "Album")) or "")
-  local artUrl = tostring(unwrap(g("artUrl", "art_url", "art")) or "")
-  local status = unwrap(g("status", "playback_status", "playbackStatus", "Status"))
-  local playing
-  local playingField = g("playing", "isPlaying")
-  if status ~= nil then playing = (tostring(status):lower() == "playing")
-  elseif playingField ~= nil then playing = (unwrap(playingField) == true)
-  else playing = false end
-  local lengthSec = tonumber(g("lengthSec", "durationSec"))
-  if not lengthSec then lengthSec = (tonumber(unwrap(g("lengthMs", "durationMs"))) or 0)/1000 end
-  if (lengthSec or 0) == 0 then lengthSec = (tonumber(unwrap(g("lengthUs", "length_us"))) or 0)/1e6 end
-  if (lengthSec or 0) == 0 then
-    local r = tonumber(unwrap(g("length", "Length", "duration")))
-    if r then if r > 1e6 then r = r/1e6 elseif r > 1e4 then r = r/1000 end; lengthSec = r end
-  end
-  lengthSec = lengthSec or 0
-  local posSec = tonumber(unwrap(g("posSec", "positionSec"))) or 0
-  if posSec == 0 then posSec = (tonumber(unwrap(g("positionMs", "posMs"))) or 0)/1000 end
-  if posSec == 0 then posSec = (tonumber(unwrap(g("positionUs", "position_us"))) or 0)/1e6 end
-  if posSec == 0 then
-    local r = tonumber(unwrap(g("position", "Position")))
-    if r then if r > 1e6 then r = r/1e6 elseif r > 1e4 then r = r/1000 end; posSec = r end
-  end
-  local busName = tostring(unwrap(g("bus_name", "busName", "playerBusName")) or "")
-  local identity = tostring(unwrap(g("identity", "playerName", "name")) or "")
-  local canSeekRaw = g("canSeek", "can_seek")
-  local canSeek
-  if canSeekRaw == nil then canSeek = true else canSeek = (unwrap(canSeekRaw) == true) end
-  local function honestCap(keys)
-    for _, k in ipairs(keys) do
-      local v = g(k)
-      if v ~= nil then return (unwrap(v) == true) end
-    end
-    return nil
-  end
-  local canGoNext = honestCap({"can_go_next", "canGoNext"})
-  local canGoPrev = honestCap({"can_go_previous", "canGoPrevious"})
-  local shuffleRaw = g("shuffle", "shuffleStatus")
-  local shuffle
-  if shuffleRaw == nil then shuffle = nil else shuffle = (unwrap(shuffleRaw) == true) end
-  local loopRaw = g("loop_status", "loopStatus")
-  local loopStatus
-  if loopRaw == nil then loopStatus = nil else loopStatus = tostring(unwrap(loopRaw)) end
-  return {
-    title = title, artist = artist, album = album, artUrl = artUrl,
-    status = tostring(status or ""), playing = (playing == true),
-    lengthSec = lengthSec, posSec = posSec,
-    busName = busName, identity = identity,
-    canSeek = canSeek, canGoNext = canGoNext, canGoPrev = canGoPrev,
-    shuffle = shuffle, loopStatus = loopStatus,
-  }
-end
+-- (lib.normalizePlayer deleted: dead since the service reads the host
+--  response through parseMediaPlayerResponse + the variant shim; both
+--  re-audits flagged the ~80-line duplicate.)
 
 function lib.trackKey(ident, title, artist, lengthUs)
   return tostring(ident or "") .. "|" .. tostring(title or "") .. "|"

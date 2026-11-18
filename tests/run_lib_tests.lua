@@ -138,6 +138,28 @@ do
   end
 end
 
+-- Single source of truth for "lyrics are shown" + geometry consistency
+-- between panel.luau and the manifest panel presets (the numbers were
+-- maintained in both places and could drift silently).
+do
+  ok(lib.isLyricsShown("ready") and lib.isLyricsShown("choose"),
+    "isLyricsShown: ready/choose show lyrics")
+  ok((not lib.isLyricsShown("loading")) and (not lib.isLyricsShown("empty"))
+     and (not lib.isLyricsShown("error")) and (not lib.isLyricsShown("idle")),
+    "isLyricsShown: loading/empty/error/idle do not")
+
+  local panel = io.open(dir .. "/../media-lyrics/panel.luau")
+  local pbody = panel and panel:read("a") or ""
+  if panel then panel:close() end
+  local toml = io.open(dir .. "/../media-lyrics/plugin.toml")
+  local tbody = toml and toml:read("a") or ""
+  if toml then toml:close() end
+  for _, w in ipairs({ 440, 520, 640 }) do
+    ok(pbody:find("= " .. w, 1, true) ~= nil and tbody:find("width = " .. w, 1, true) ~= nil,
+      "geometry: panel width " .. w .. " exists in BOTH panel.luau and plugin.toml")
+  end
+end
+
 -- ── sanitizePart / lrcIsSynced / charCount ─────────────────────────────────
 ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes -> underscores")
 ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")

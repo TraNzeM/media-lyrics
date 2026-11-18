@@ -417,7 +417,7 @@ local function buildLyricsBody(s)
     return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
-  if (s.lyricsStatus == "choose" or s.lyricsStatus == "ready") and #(s.lyrics or {}) > 0 then
+  if lyrics_lib.isLyricsShown(s.lyricsStatus) and #(s.lyrics or {}) > 0 then
     -- ready, or "choose" with the picker closed (or a picked variant live):
     -- render the karaoke/plain lyrics that are actually loaded.
     local pos = interpPos(s)
@@ -1001,7 +1001,7 @@ local function render()
 
   -- footer: provider + mode in one quiet label (empty string hides itself)
   local footerTxt = ""
-  if s.lyricsStatus == "ready" or ((s.lyricsStatus == "choose") and #(s.lyrics or {}) > 0) then
+  if lyrics_lib.isLyricsShown(s.lyricsStatus) and #(s.lyrics or {}) > 0 then
     footerTxt = (s.lyricsProvider ~= "" and s.lyricsProvider or "")
       .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
         or (" - " .. noctalia.tr("panel.unsynced")))

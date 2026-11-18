@@ -219,9 +219,12 @@ local function posNow(s)
 end
 
 -- Which lyric line is current: the last line whose timestamp has passed.
-local function activeLine(s)
+-- posOverride: a position already sampled this render (posNow hits the host
+-- synchronously - activeLine/sweep/time label must share ONE sample per
+-- render, not three).
+local function activeLine(s, posOverride)
   if type(s) ~= "table" or type(s.lyrics) ~= "table" then return 0 end
-  local pos = posNow(s)
+  local pos = posOverride or posNow(s)
   local idx = 0
   for i = 1, #s.lyrics do
     local t = tonumber(s.lyrics[i].time) or -1
@@ -282,6 +285,10 @@ local function render()
 
   local live = (type(snap) == "table" and snap.hasPlayer == true)
   local s = live and snap or idleSnapshot()
+  -- ONE synchronous host sample per render shared by the active line, the
+  -- karaoke sweep and the time label (three posNow calls per frame-tick were
+  -- up to ~120 MPRIS round-trips per second inside the 25 ms budget).
+  local posLive = posNow(s)
 
   -- Hide as a whole (card included) while there is nothing to show. Same rules
   -- as the official lyrics widget: no player -> hide_when_no_media decides,
@@ -355,7 +362,7 @@ local function render()
     -- but the STYLED line must stay "none": the first line may not glow before
     -- it is actually sung (owner: "светится с самого начала, а текст ещё не
     -- начался"). curIdx 0 = nothing is current.
-    local rawActive = activeLine(s)
+    local rawActive = activeLine(s, posLive)
     local active = math.min(math.max(rawActive, 1), n)
     local curIdx = (rawActive >= 1) and rawActive or 0
     local function pieces(i)
@@ -392,7 +399,7 @@ local function render()
     local totalWords = 0
     for _ in singleLine(cur.text):gmatch("%S+") do totalWords = totalWords + 1 end
     local swept = (wordSweep and totalWords > 0) and
-      lyrics_lib.fillProgress(cur.words, (posNow(s) or 0), lineStart, lineEnd, totalWords) or 0
+      lyrics_lib.fillProgress(cur.words, posLive, lineStart, lineEnd, totalWords) or 0
 
     local wordsBefore = 0
     for i = lo, hi do
@@ -478,7 +485,7 @@ local function render()
       enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
     ui.box({ key = "transportSlack", flexGrow = 1 }),
-    ui.label({ key = "time", text = fmtTime(posNow(s)) .. " / " .. fmtTime(s.lengthSec),
+    ui.label({ key = "time", text = fmtTime(posLive) .. " / " .. fmtTime(s.lengthSec),
       fontSize = 11, color = "on_surface_variant" }),
   })
 
