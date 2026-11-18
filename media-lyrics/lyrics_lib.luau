@@ -907,9 +907,11 @@ function lib.normalizePlayer(raw)
   local canGoNext = honestCap({"can_go_next", "canGoNext"})
   local canGoPrev = honestCap({"can_go_previous", "canGoPrevious"})
   local shuffleRaw = g("shuffle", "shuffleStatus")
-  local shuffle = (shuffleRaw == nil) and nil or (unwrap(shuffleRaw) == true)
+  local shuffle
+  if shuffleRaw == nil then shuffle = nil else shuffle = (unwrap(shuffleRaw) == true) end
   local loopRaw = g("loop_status", "loopStatus")
-  local loopStatus = (loopRaw == nil) and nil or tostring(unwrap(loopRaw))
+  local loopStatus
+  if loopRaw == nil then loopStatus = nil else loopStatus = tostring(unwrap(loopRaw)) end
   return {
     title = title, artist = artist, album = album, artUrl = artUrl,
     status = tostring(status or ""), playing = (playing == true),

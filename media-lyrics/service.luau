@@ -1015,10 +1015,10 @@ local function refreshPlayer()
           identity = { type = "s", data = n.identity },
           bus_name = { type = "s", data = n.busName },
           can_seek = { type = "b", data = n.canSeek == true },
-          can_go_next = { type = "b", data = true },
-          can_go_previous = { type = "b", data = true },
-          shuffle = { type = "b", data = false },
-          loop_status = { type = "s", data = "None" },
+          can_go_next = { type = "b", data = n.canGoNext == true },
+          can_go_previous = { type = "b", data = n.canGoPrev == true },
+          shuffle = { type = "b", data = n.shuffle == true },
+          loop_status = { type = "s", data = n.loopStatus or "None" },
         }
         applyPlayer(f)
         return
@@ -1051,18 +1051,10 @@ local function refreshPlayer()
     end
 
     local f = body[2]
-    local title = parseBusctlVariant(f.title) or ""
-    local artist = parseBusctlVariant(f.artists) or ""
-    -- yt-music puts artist into title when xesam:artist is empty
-    local ft2, fa2 = lyrics_lib.splitTitleArtist(title, artist)
-    title, artist = ft2, fa2
-    local album = parseBusctlVariant(f.album) or ""
-    -- art_url is a file:// URI (local path) or an HTTP(S) URL (Spotify/web
-    -- players); resolveArt turns either into a path ui.image can render.
-    local rawArtUrl = parseBusctlVariant(f.art_url) or ""
-    local playing = (parseBusctlVariant(f.playback_status) == "Playing")
-    local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
-    local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
+    -- ONLY the player identity is needed here (allowlist decision); every
+    -- other field is parsed inside applyPlayer(f) - parsing them here too was
+    -- a duplicated 10-line block that drifted apart (incl. a second
+    -- splitTitleArtist).
     local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
     local busName = parseBusctlVariant(f.bus_name) or ""
 
