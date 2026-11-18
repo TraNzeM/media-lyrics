@@ -316,7 +316,17 @@ end
 -- ── sanitizers ─────────────────────────────────────────────────────────────
 
 function lib.sanitizePart(s)
-  return trim((s or ""):gsub('[%c/\\]', "_"))
+  local out = trim((s or ""):gsub('[%c/\\]', "_"))
+  -- Bound the filename piece: a 300-character title broke cache writes on
+  -- long-path filesystems. Cut at 80 bytes and drop a trailing partial
+  -- UTF-8 sequence so the name stays valid.
+  if #out > 80 then
+    out = out:sub(1, 80)
+    while #out > 0 and out:byte(#out) >= 0x80 do
+      out = out:sub(1, #out - 1)
+    end
+  end
+  return out
 end
 
 -- ── word timing (enhanced LRC) ─────────────────────────────────────────────

@@ -1,4 +1,12 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
 local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics compact mini panel: cover + current lyric line only.
 -- A lightweight always-on karaoke line (pinnable to the desktop) without the
@@ -97,7 +105,7 @@ end
 -- so the vertical centering never moves. Extra space sits under the lyric.
 local LYRIC_ROW_H = 2 * lineH(T.fsLyric)
 
-local function render()
+renderImpl = function()
   local s = snap
   if not s or not s.hasPlayer then
     panel.render(ui.column({ padding = PANEL_PAD, gap = T.gap, align = "center", justify = "center" }, {
@@ -139,3 +147,4 @@ end)
 
 function update()
 end
+

@@ -1,4 +1,12 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
 -- Desktop widget: now-playing + synced lyrics as a background layer-shell tile.
 --
 -- Why this exists (ROADMAP "pinned to desktop"): a persistent *panel* still goes
@@ -268,7 +276,7 @@ local function idleSnapshot()
   }
 end
 
-local function render()
+renderImpl = function()
   local showArtist = cfgBool("show_artist", true)
   local showCover = cfgBool("show_cover", true)
   local wantLines = cfgInt("lines", 3, 1, 15)
@@ -536,4 +544,5 @@ function onFrameTick(_deltaMs)
   render()
 end
 
+-- initial paint (impl is bound by now)
 render()

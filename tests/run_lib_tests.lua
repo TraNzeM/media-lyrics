@@ -168,6 +168,16 @@ ok(lib.lrcIsSynced("plain text") == false, "lrcIsSynced: false")
 ok(lib.unitEm("Привет") < 4.0, "unitEm: Cyrillic under 4.0em")
 
 
+-- sanitizePart: bounded filename pieces (a 300-char title broke cache writes;
+-- the cut must not leave a partial UTF-8 sequence)
+do
+  local long = string.rep("Привет мир ", 30)  -- multi-byte on purpose
+  local out = lib.sanitizePart(long)
+  ok(#out <= 80, "sanitizePart: capped at 80 bytes (got " .. #out .. ")")
+  ok(out == "" or out:byte(#out) < 0x80, "sanitizePart: no trailing partial UTF-8")
+  ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes still -> underscores")
+end
+
 -- ── cache paths ────────────────────────────────────────────────────────────
 -- The cache writes into a `lyrics/` subfolder of the plugin data dir and the
 -- host does not create parents on write, so the plan must expose the folder

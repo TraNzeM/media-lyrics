@@ -1,4 +1,12 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
 local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics panel: cover art with progress line, track info + transport,
 -- karaoke lyric layer. Redesign v0.2 ("quiet premium"): one hero (the cover),
@@ -991,7 +999,7 @@ end
 
 -- ============================= render =============================
 
-local function render()
+renderImpl = function()
   local s = snap or {
     hasPlayer = false, title = "", artist = "", album = "", artUrl = "",
     playing = false, lengthSec = 0, posSec = 0, lyrics = {},
@@ -1176,3 +1184,4 @@ function onKey(chord, pressed)
     seekCursor()
   end
 end
+

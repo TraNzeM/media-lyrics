@@ -72,7 +72,9 @@ do
   refresh()
   local m = host.media()
   ok(m ~= nil and m.lyricsStatus == "loading", "killed cb: status is loading right after the track change")
-  host.fireTimers()               -- the 45 s watchdog deadline
+  host.fireTimers()               -- let the pump pass run (no-op: nothing due)
+  host.now = host.now + 76000     -- advance the fake clock past the 75 s deadline
+  host.fireTimers()               -- the 75 s watchdog deadline
   m = host.media()
   ok(m ~= nil and m.lyricsStatus == "error",
     "killed cb: watchdog settles with an error, never hangs on loading (got "

@@ -253,7 +253,7 @@ local function renderKey(m, o, shown)
   }, "|")
 end
 
-local function renderFrom(m, force)
+local function renderFromImpl(m, force)
   if not m then m = media() end
   if not m then return end
   local o = widgetOptions()
@@ -387,6 +387,10 @@ local function renderFrom(m, force)
   if spec then children[#children + 1] = spec end
 
   barWidget.render(ui.row({ gap = GAP, align = "center" }, children))
+end
+
+local function renderFrom(m, force)
+  pcall(renderFromImpl, m, force)
 end
 
 -- ── audio spectrum entry point ──────────────────────────────────────────────
