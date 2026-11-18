@@ -11,6 +11,8 @@
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
 version = "1.0.2"
+# plugin_api keeps 43 on purpose: it is the documented maximum and the
+# plugin does not need anything newer (noctalia-plugin-development).
 plugin_api = 43
 author = "tranzem"
 license = "MIT"

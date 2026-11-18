@@ -995,32 +995,60 @@ end
 -- Apply a single player's fields to the snapshot and (on track change) load
 -- lyrics. Shared by the active-player path and the allowlist fallback.
 -- Declared BEFORE refreshPlayer so it is a visible upvalue there.
-local function applyPlayer(f)
-    local title = parseBusctlVariant(f.title) or ""
-    local artist = parseBusctlVariant(f.artists) or ""
-    -- yt-music puts artist into title when xesam:artist is empty
-    local ft, fa = lyrics_lib.splitTitleArtist(title, artist)
-    title, artist = ft, fa
-    local album = parseBusctlVariant(f.album) or ""
-    local rawArtUrl = parseBusctlVariant(f.art_url) or ""
-    local playing = (parseBusctlVariant(f.playback_status) == "Playing")
-    local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
-    local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
-    local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
-    local busName = parseBusctlVariant(f.bus_name) or ""
+-- Normalize a raw GetActivePlayer field table (variant-encoded) into the
+-- plain contract applyPlayer consumes. Separate so the sync path can hand
+-- lyrics_lib.parseMediaPlayerResponse output over DIRECTLY: the old fake
+-- D-Bus shim re-encoded plain fields into variants and applyPlayer decoded
+-- them again (the double parse both audits flagged).
+local function normalizeBusctlFields(f)
+  f = f or {}
+  local title = parseBusctlVariant(f.title) or ""
+  local artist = parseBusctlVariant(f.artists) or ""
+  -- yt-music puts artist into title when xesam:artist is empty
+  local ft, fa = lyrics_lib.splitTitleArtist(title, artist)
 
-    -- Transport caps: unknown = enabled (MPRIS caps are optional; the command
-    -- path refreshes them after the call). Strict "== true" disabled both
-    -- buttons whenever the host omitted the fields (owner report).
-    local function cap(v)
-      if v == nil then return true end
-      return v == true
-    end
-    local canSeek = cap(parseBusctlVariant(f.can_seek))
-    local canNext = cap(parseBusctlVariant(f.can_go_next))
-    local canPrev = cap(parseBusctlVariant(f.can_go_previous))
-    local shuffle = parseBusctlVariant(f.shuffle) == true
-    local loopStatus = parseBusctlVariant(f.loop_status) or "None"
+  -- Transport caps: unknown = enabled (MPRIS caps are optional; the command
+  -- path refreshes them after the call). Strict "== true" disabled both
+  -- buttons whenever the host omitted the fields (owner report).
+  local function cap(v)
+    if v == nil then return true end
+    return v == true
+  end
+
+  return {
+    title = ft,
+    artist = fa,
+    album = parseBusctlVariant(f.album) or "",
+    artUrl = parseBusctlVariant(f.art_url) or "",
+    playing = (parseBusctlVariant(f.playback_status) == "Playing"),
+    lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0,
+    posUs = tonumber(parseBusctlVariant(f.position_us)) or 0,
+    identity = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or "",
+    busName = parseBusctlVariant(f.bus_name) or "",
+    canSeek = cap(parseBusctlVariant(f.can_seek)),
+    canGoNext = cap(parseBusctlVariant(f.can_go_next)),
+    canGoPrev = cap(parseBusctlVariant(f.can_go_previous)),
+    shuffle = parseBusctlVariant(f.shuffle) == true,
+    loopStatus = parseBusctlVariant(f.loop_status) or "None",
+  }
+end
+
+-- Plain-fields contract: title/artist split, seconds-based units accepted.
+local function applyPlayer(n)
+    local title = n.title or ""
+    local artist = n.artist or ""
+    local album = n.album or ""
+    local rawArtUrl = n.artUrl or ""
+    local playing = n.playing == true
+    local lengthUs = n.lengthUs or math.floor((n.lengthSec or 0) * 1e6 + 0.5)
+    local posUs = n.posUs or math.floor((n.posSec or 0) * 1e6 + 0.5)
+    local ident = n.identity or ""
+    local busName = n.busName or ""
+    local canSeek = n.canSeek ~= false
+    local canNext = n.canGoNext ~= false
+    local canPrev = n.canGoPrev ~= false
+    local shuffle = n.shuffle == true
+    local loopStatus = n.loopStatus or "None"
 
     local key = lyrics_lib.trackKey(ident, title, artist, lengthUs)
     local trackChanged = (not snapshot.hasPlayer) or (currentTrackKey ~= key)
@@ -1089,23 +1117,10 @@ local function refreshPlayer()
     if ok then
       local n = lyrics_lib.parseMediaPlayerResponse(resp)
       if n and (n.identity ~= "" or n.busName ~= "" or n.title ~= "") then
-        local f = {
-          title = { type = "s", data = n.title },
-          artists = { type = "s", data = n.artist },
-          album = { type = "s", data = n.album },
-          art_url = { type = "s", data = n.artUrl or "" },
-          playback_status = { type = "s", data = n.playing and "Playing" or "Paused" },
-          length_us = { type = "x", data = math.floor((n.lengthSec or 0) * 1e6 + 0.5) },
-          position_us = { type = "x", data = math.floor((n.posSec or 0) * 1e6 + 0.5) },
-          identity = { type = "s", data = n.identity },
-          bus_name = { type = "s", data = n.busName },
-          can_seek = { type = "b", data = n.canSeek == true },
-          can_go_next = { type = "b", data = n.canGoNext == true },
-          can_go_previous = { type = "b", data = n.canGoPrev == true },
-          shuffle = { type = "b", data = n.shuffle == true },
-          loop_status = { type = "s", data = n.loopStatus or "None" },
-        }
-        applyPlayer(f)
+        -- parseMediaPlayerResponse output IS the plain contract - pass it
+        -- through untouched (the fake-D-Bus shim that re-encoded these fields
+        -- into variants just to decode them again is gone).
+        applyPlayer(n)
         return
       end
     end
@@ -1157,7 +1172,7 @@ local function refreshPlayer()
           local pIdent = parseBusctlVariant(p.identity) or parseBusctlVariant(p.bus_name) or ""
           local pBus = parseBusctlVariant(p.bus_name) or ""
           if playerAllowed(pIdent, pBus) then
-            applyPlayer(p)
+            applyPlayer(normalizeBusctlFields(p))
             return
           end
         end
@@ -1166,7 +1181,7 @@ local function refreshPlayer()
       return
     end
 
-    applyPlayer(f)
+    applyPlayer(normalizeBusctlFields(f))
   end)
 end
 
