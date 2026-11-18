@@ -274,11 +274,14 @@ local isPlaceholderLyrics = lyrics_lib.isPlaceholderLyrics
 -- "loading" so a dead async callback (host CPU budget, guard drop) cannot leave
 -- the panel stuck on "Loading lyrics...". gen/key token checks prevent a stale
 -- watchdog from settling a newer load.
-local function armLoadWatchdog(gen, key)
+local function armLoadWatchdog(gen)
   noctalia.runAsync({ "sleep", "45" }, function()
     if not (snapshot.lyricsStatus == "loading") then return end
+    -- Generation check ONLY: a key check would let the watchdog of an
+    -- in-flight load bail forever when MPRIS metadata drifts onto a new key
+    -- while the SAME track is still loading (deepseek probe_drift: eternal
+    -- "Loading lyrics..."). The gen is the load's real identity.
     if gen ~= nil and gen ~= fetchGeneration then return end
-    if key ~= nil and key ~= currentTrackKey then return end
     finishError(noctalia.tr("service.lyrics-unreachable"))
   end)
 end
@@ -293,8 +296,8 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   snapshot.lyricsStatus = "loading"
   publish()
 
-  -- Arm the 45 s watchdog for THIS load (gen + key token checks live inside).
-  armLoadWatchdog(gen, key)
+  -- Arm the 45 s watchdog for THIS load (gen token check lives inside).
+  armLoadWatchdog(gen)
 
   if trim(title) == "" then
     finishEmpty()
@@ -982,7 +985,7 @@ local function applyPlayer(f)
       publish()
       -- Watchdog #1494 insurance for the fetchEmbeddedLyrics callback: if it
       -- dies (host CPU budget / guard drop) loadLyricsForTrack is never reached.
-      armLoadWatchdog(nil, key)
+      armLoadWatchdog(fetchGeneration)
       fetchEmbeddedLyrics(busName, function(raw, url)
         -- A stale callback from a PREVIOUS track must not re-claim its old
         -- key (rapid prev/next: this closure captured the old track's key and
@@ -994,9 +997,12 @@ local function applyPlayer(f)
         loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "", url or "")
       end)
     else
-      -- metadata drift collapsed onto the same track: stabilise the key so
-      -- the next poll does not re-evaluate drift against a stale key.
-      currentTrackKey = key
+      -- Metadata drift collapsed onto the same track. DO NOT re-claim
+      -- currentTrackKey here: the in-flight fetch callback and the watchdog
+      -- both compare against the CLAIMED key, and re-claiming orphans them -
+      -- the callback drops, loadLyricsForTrack never runs and "loading" hangs
+      -- forever (deepseek probe_drift reproduced this). The drifted fields
+      -- were already updated above; the claim stays with the load that owns it.
       publish()
     end
 end

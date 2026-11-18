@@ -32,11 +32,11 @@ local payloads = {
   } } } },
 }
 
-local function fields(title, artist)
+local function fields(title, artist, lenUs)
   return { title = { type = "s", data = title }, artists = { type = "s", data = artist },
     album = { type = "s", data = "" }, art_url = { type = "s", data = "" },
     playback_status = { type = "s", data = "Playing" },
-    length_us = { type = "x", data = 190000000 }, position_us = { type = "x", data = 5000000 },
+    length_us = { type = "x", data = lenUs or 190000000 }, position_us = { type = "x", data = 5000000 },
     identity = { type = "s", data = "player" }, bus_name = { type = "s", data = ":1.5" },
     can_seek = { type = "b", data = true }, can_go_next = { type = "b", data = true },
     can_go_previous = { type = "b", data = true }, shuffle = { type = "b", data = false },
@@ -44,6 +44,13 @@ local function fields(title, artist)
 end
 payloads[ACTIVE_TOKEN] = { data = { true, fields("Big Dawgs", "Hanumankind") } }
 payloads[ACTIVE2_TOKEN] = { data = { true, fields("Beside Me", "Andromedik") } }
+local ACTIVE_DRIFT1 = "###active-drift1###"
+local ACTIVE_DRIFT2 = "###active-drift2###"
+-- the same track with drifting MPRIS metadata: title gains a "(feat. ...)"
+-- suffix and the unknown length fills in (deepseek probe_drift case).
+-- A DISTINCT track pair so scenario 3's state cannot collapse the change.
+payloads[ACTIVE_DRIFT1] = { data = { true, fields("Drift Song", "Someone", 0) } }
+payloads[ACTIVE_DRIFT2] = { data = { true, fields("Drift Song (feat. Y)", "Someone", 190000000) } }
 
 local host = fake.install(payloads)
 noctalia = host.noctalia
@@ -108,6 +115,37 @@ do
     .. tostring(m and m.lyricsStatus) .. ")")
   ok(m and m.synced == false, "plain lyrics: marked unsynced")
   ok(m and type(m.lyrics) == "table" and #m.lyrics == 2, "plain lyrics: both lines parsed")
+end
+
+-- ── 4) metadata drift on the SAME track: no eternal "Loading lyrics..." ────
+-- The title gains a "(feat. ...)" suffix and the length fills in while the
+-- embedded fetch is still in flight. sameClaim collapses the drift, and the
+-- in-flight callback must still land (the claim may NOT be re-stolen from it -
+-- deepseek probe_drift reproduced an eternal "loading" hang here).
+do
+  local held = {}
+  local realRun = host.noctalia.runAsync
+  host.noctalia.runAsync = function(argv, cb)
+    if table.concat(argv, " "):find("Metadata") then
+      held[#held + 1] = cb
+      return
+    end
+    return realRun(argv, cb)
+  end
+  host.script.active = { exitCode = 0, stdout = ACTIVE_DRIFT1 }
+  refresh()                          -- track starts (loading), embedded cb held
+  ok(host.media().lyricsStatus == "loading", "drift: loading right after the track change")
+  host.script.active = { exitCode = 0, stdout = ACTIVE_DRIFT2 }
+  refresh()                          -- same track, drifted metadata (150 ms later)
+  ok(host.media().lyricsStatus == "loading", "drift: still loading (no spurious reload)")
+  host.noctalia.runAsync = realRun
+  host.script.embedded = { exitCode = 0, stdout = META_TOKEN }
+  if held[1] then held[1]({ exitCode = 0, stdout = META_TOKEN }) end
+  ok(host.media().lyricsStatus == "ready",
+    "drift: the in-flight callback lands after the drift (got "
+    .. tostring(host.media() and host.media().lyricsStatus) .. ")")
+  host.fireTimers()
+  ok(host.media().lyricsStatus == "ready", "drift: the watchdog does not clobber the ready state")
 end
 
 print(string.format("\n%d passed, %d failed (scenarios)", passed, failed))
