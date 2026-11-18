@@ -849,10 +849,12 @@ local function buildInfoRow(s)
   end
   local function charUnits(char)
     -- Exact per-glyph advance in em - the same measured table wrapLyric uses
-    -- (charAdv). The previous flat 0.72 em/char over-estimated mixed-case
-    -- titles by ~30%, so the marquee window came out far narrower than the
-    -- slot and the title ended in open space (owner: "окно для текста обрезано").
-    return charAdv(char)
+    -- (charAdv) - times a 1.12 SAFETY margin: the table under-measures the live
+    -- font slightly, and the title/artist BUTTONS word-wrap when the real text
+    -- exceeds the slot (owner: "то названия пишутся в две строки, то артисты,
+    -- хотя места хватает"). The margin engages the marquee a touch early so the
+    -- visible window always fits for real.
+    return charAdv(char) * 1.12
   end
   local function textUnits(text)
     local u = 0

@@ -105,9 +105,14 @@ local truncEm = lyrics_lib.truncEm
 
 
 -- Single-line text that fits a fixed pixel width, cut with an ellipsis.
+-- SAFETY = 1.12: the charAdv table under-measures the live font just enough
+-- that an "it fits" verdict could still overflow and the label word-wrapped
+-- early ("Party Rock / Anthem" while "Anthem" still had room - owner). The
+-- margin makes the ellipsis engage before the real edge.
+local ADV_SAFETY = 1.12
 local function fit(text, widthPx, fontSize)
   if not widthPx or widthPx <= 0 then return text end
-  return truncEm(text, widthPx / (fontSize or 12))
+  return truncEm(text, (widthPx / (fontSize or 12)) / ADV_SAFETY)
 end
 
 -- Break a line into AT MOST two display lines that fit `maxW` px at `fontSize`.
@@ -338,12 +343,16 @@ renderImpl = function()
   local artist = singleLine(s.artist ~= "" and s.artist or s.album)
   if artist == "" then artist = noctalia.tr("common.unknown-artist") end
 
+  -- maxLines = 1 is the real guard against the early word-wrap: the label must
+  -- never fold onto two lines (it shifted the whole lyric window down - owner:
+  -- "то названия пишутся в две строки, то артисты, хотя места хватает").
   local infoKids = {
-    ui.label({ key = "title", text = fit(title, textW, 15), fontSize = 15, color = "on_surface" }),
+    ui.label({ key = "title", text = fit(title, textW, 15), fontSize = 15,
+      color = "on_surface", maxLines = 1, maxWidth = textW }),
   }
   if showArtist then
     infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, textW, 12),
-      fontSize = 12, color = "on_surface_variant" })
+      fontSize = 12, color = "on_surface_variant", maxLines = 1, maxWidth = textW })
   end
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
