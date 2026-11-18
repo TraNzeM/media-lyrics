@@ -50,16 +50,9 @@ local function interpPos(s)
   return lyrics_lib.interpPos(s.posSec, lastSnapMs, nowMs(), s.playing, s.lengthSec)
 end
 
--- 1-based index of the active lyric line at the interpolated position.
 local function activeIndex(s)
-  local pos = interpPos(s)
-  local active = -1
-  local n = #(s.lyrics or {})
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
-  return active
+  if not s then return -1 end
+  return lyrics_lib.activeIndex(s.lyrics or {}, interpPos(s))
 end
 
 local function buildCover(s)

@@ -213,41 +213,9 @@ end
 -- budget (42 chars for an active fs17 line) rejected a 51-char line that
 -- actually renders at ~333 px inside the 474 px content width, so lines that
 -- fit were wrapped as soon as they became active. Bold runs ~5% wider.
-local function toChars(text)
-  local chars = {}
-  local i = 1
-  while i <= #text do
-    local byte = text:byte(i)
-    local len = 1
-    if byte >= 0xF0 then len = 4 elseif byte >= 0xE0 then len = 3
-    elseif byte >= 0xC0 then len = 2 end
-    chars[#chars + 1] = text:sub(i, i + len - 1)
-    i = i + len
-  end
-  return chars
-end
-local function charAdv(c)
-  local o = string.byte(c) or 32
-  if o >= 0x80 then
-    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
-    return 0.58                                          -- other non-ASCII (Cyrillic etc)
-  end
-  if c == " " then return 0.28 end
-  if c == "i" or c == "l" or c == "I" then return 0.27 end
-  if c == "m" then return 0.92 end
-  if c == "w" or c == "M" or c == "W" then return 0.80 end
-  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
-     or c == "|" or c == "`" then return 0.28 end
-  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
-  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
-  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
-  return 0.56
-end
-local function unitEm(text)
-  local u = 0
-  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
-  return u
-end
+local toChars = lyrics_lib.toChars
+local charAdv = lyrics_lib.charAdv
+local unitEm = lyrics_lib.unitEm
 local ADV_SPACE = 0.28
 
 -- Split a lyric line into display sub-lines that fit the panel width, measured
@@ -1122,14 +1090,8 @@ end
 -- before the first timestamp — fixes the frozen window until the first
 -- words), steps by delta and re-centers the window on the cursor.
 local function activeIndex(s)
-  local pos = interpPos(s)
-  local active = -1
-  local n = #(s.lyrics or {})
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
-  return active
+  if not s then return -1 end
+  return lyrics_lib.activeIndex(s.lyrics or {}, interpPos(s))
 end
 
 local function moveCursor(delta)

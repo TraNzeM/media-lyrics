@@ -89,20 +89,7 @@ local function charCount(s)
   return n
 end
 
-local function toChars(s)
-  local out = {}
-  local i = 1
-  while i <= #s do
-    local b = s:byte(i)
-    local len = 1
-    if b >= 0xF0 then len = 4
-    elseif b >= 0xE0 then len = 3
-    elseif b >= 0xC0 then len = 2 end
-    out[#out + 1] = s:sub(i, i + len - 1)
-    i = i + len
-  end
-  return out
-end
+local toChars = lyrics_lib.toChars
 
 -- First maxChars characters (UTF-8 safe).
 local function charPrefix(s, maxChars)

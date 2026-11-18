@@ -84,55 +84,11 @@ end
 -- embedded newline; the same approach is used here. Widths are measured in em with
 -- a per-character advance table rather than in character counts, because "i" and
 -- "m" are nowhere near the same width.
-local function toChars(text)
-  local chars, i = {}, 1
-  while i <= #text do
-    local b = string.byte(text, i) or 0
-    local step = 1
-    if b >= 0xF0 then step = 4 elseif b >= 0xE0 then step = 3 elseif b >= 0xC0 then step = 2 end
-    chars[#chars + 1] = string.sub(text, i, i + step - 1)
-    i = i + step
-  end
-  return chars
-end
+local toChars = lyrics_lib.toChars
+local charAdv = lyrics_lib.charAdv
+local unitEm = lyrics_lib.unitEm
+local truncEm = lyrics_lib.truncEm
 
-local function charAdv(c)
-  local o = string.byte(c) or 32
-  if o >= 0x80 then
-    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
-    return 0.58                                          -- other non-ASCII (Cyrillic etc)
-  end
-  if c == " " then return 0.28 end
-  if c == "i" or c == "l" or c == "I" then return 0.27 end
-  if c == "m" then return 0.92 end
-  if c == "w" or c == "M" or c == "W" then return 0.80 end
-  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
-     or c == "|" or c == "`" then return 0.28 end
-  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
-  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
-  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
-  return 0.56
-end
-
-local function unitEm(text)
-  local u = 0
-  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
-  return u
-end
-
-local ADV_SPACE = 0.28
-
--- Hard-cut to a whole number of em, never splitting a UTF-8 sequence.
-local function truncEm(text, capEm)
-  local out, used = {}, 0
-  for _, ch in ipairs(toChars(text)) do
-    local a = charAdv(ch)
-    if used + a > capEm then return table.concat(out) .. "…" end
-    out[#out + 1] = ch
-    used = used + a
-  end
-  return table.concat(out)
-end
 
 -- Single-line text that fits a fixed pixel width, cut with an ellipsis.
 local function fit(text, widthPx, fontSize)
