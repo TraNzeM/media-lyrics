@@ -123,6 +123,21 @@ do
   ok(q.canGoNext == false and q.canGoPrev == false, "caps: explicit false is respected")
 end
 
+-- ── source guard: singleLine must use REAL escapes ─────────────────────────
+-- desktop.luau documents the runtime pitfall: the percent-r/n/t shorthand is
+-- NOT a character class here - it silently eats the letters r/n/t out of text
+-- ("The Chemical Brothers" -> "B o he s"). Guard the entries against it.
+do
+  for _, f in ipairs({ "desktop.luau", "panel.luau", "panel-mini.luau", "widget.luau" }) do
+    local src = io.open(dir .. "/../media-lyrics/" .. f)
+    local body = src and src:read("a") or ""
+    if src then src:close() end
+    ok(body:find("[%r", 1, true) == nil and body:find("[%n", 1, true) == nil
+       and body:find("[%t", 1, true) == nil,
+      f .. ": no percent-r/n/t character-class shorthand (eats letters)")
+  end
+end
+
 -- ── sanitizePart / lrcIsSynced / charCount ─────────────────────────────────
 ok(lib.sanitizePart("A/B\\C") == "A_B_C", "sanitizePart: slashes -> underscores")
 ok(lib.lrcIsSynced("[00:01.00]x") == true, "lrcIsSynced: true")

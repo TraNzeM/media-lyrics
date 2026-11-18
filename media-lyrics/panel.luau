@@ -86,7 +86,7 @@ local showCandidates = false -- "choose lyrics" selector open (toggled by the he
 local marqueePaused = false -- pointer over the title/artist block pauses marquees
 local lastTrackKey = "" -- track identity for cursor reset on track change
 local lastSnapMs = 0
-tickMarquee = nil      -- set by buildInfoRow; advances marquee clocks
+local tickMarquee = nil   -- set by buildInfoRow; advances marquee clocks
 
 local function nowMs()
   local ok, v = pcall(function() return noctalia.nowMs() end)

@@ -73,73 +73,14 @@ function lib.truncEm(text, capEm)
   return table.concat(out)
 end
 
-function lib.wrap(text, capEm, maxLines)
-  if text == nil or text == "" then return text end
-  capEm = capEm or 1e9
-  if type(maxLines) ~= "number" or maxLines < 1 then maxLines = nil end
-  local words = {}
-  for w in (text .. " "):gmatch("(.-) ") do words[#words + 1] = w end
-  local out, cur, curEm = {}, "", 0
-  local function flush()
-    if cur ~= "" then out[#out + 1] = cur; cur, curEm = "", 0 end
-  end
-  for _, w in ipairs(words) do
-    local wEm = unitEm(w)
-    if maxLines and #out >= maxLines then break end
-    if wEm > capEm then
-      flush()
-      if maxLines and #out >= maxLines then break end
-      local acc, accEm = "", 0
-      for _, ch in ipairs(toChars(w)) do
-        local ce = charAdv(ch)
-        if acc ~= "" and accEm + ce > capEm then
-          out[#out + 1] = acc; acc, accEm = "", 0
-          if maxLines and #out >= maxLines then break end
-        end
-        if maxLines and #out >= maxLines then break end
-        acc = acc .. ch; accEm = accEm + ce
-      end
-      if acc ~= "" and not (maxLines and #out >= maxLines) then
-        out[#out + 1] = acc
-      end
-    elseif cur == "" then
-      cur, curEm = w, wEm
-    elseif curEm + 0.28 + wEm <= capEm then
-      cur = cur .. " " .. w; curEm = curEm + 0.28 + wEm
-    else
-      flush()
-      if maxLines and #out >= maxLines then break end
-      cur, curEm = w, wEm
-    end
-  end
-  if cur ~= "" and not (maxLines and #out >= maxLines) then
-    out[#out + 1] = cur
-  end
-  if maxLines and #out > maxLines then
-    -- keep first maxLines lines, last truncated
-    local res = {}
-    for i = 1, maxLines - 1 do res[#res+1] = out[i] end
-    res[#res+1] = lib.truncEm(out[maxLines], capEm)
-    out = res
-  elseif maxLines and #out == maxLines and cur == "" then
-    -- last already pushed? trunc if needed impossible; leave
-  end
-  -- If we have exactly maxLines and leftover words, truncate last line already? best-effort:
-  if maxLines and #out == maxLines then
-    out[maxLines] = lib.truncEm(out[maxLines], capEm)
-  end
-  return table.concat(out, "\n")
-end
-
 -- ── LRC parsing ─────────────────────────────────────────────────────────────
 
 function lib.fractionalSeconds(frac)
   if not frac or frac == "" then return 0.0 end
   local v = tonumber(frac) or 0
-  local n = #frac
-  if n == 1 then return v / 10.0 end
-  if n == 2 then return v / 100.0 end
-  return v / 1000.0
+  -- Scale by the ACTUAL digit count: "[00:01.0025]" is 25 ms, not 2.5 ms
+  -- (the old /1000 cap silently misread 4+ digit fractions).
+  return v / (10 ^ #frac)
 end
 
 function lib.isMetadataLine(line)
@@ -527,7 +468,7 @@ function lib.trackMatches(want, got)
   if wd > 0 and gd > 0 and math.abs(wd - gd) > 5 then return false end
   local wa, ga = norm(want.artist), norm(got.artist)
   if wa == "" or ga == "" then return true end
-  return wa == ga or ga:find(wa, 1, true) ~= nil or wa: find(ga, 1, true) ~= nil
+  return wa == ga or ga:find(wa, 1, true) ~= nil or wa:find(ga, 1, true) ~= nil
 end
 
 -- Do two lyric bodies say the same words? The comparison is a word bag —

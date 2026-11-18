@@ -44,8 +44,14 @@ end
 
 -- Far rows sit back at reduced strength. Theme roles take an alpha suffix;
 -- a hex value cannot be dimmed safely, so it passes through unchanged.
+-- A role that already carries an alpha ("primary/0.9") has it scaled instead
+-- of being skipped (the old check left such rows at full strength).
 local function dim(c)
-  if c:sub(1, 1) == "#" or c:find("/", 1, true) then return c end
+  if c:sub(1, 1) == "#" then return c end
+  local base, a = c:match("^(.-)/([%d%.]+)$")
+  if base then
+    return base .. "/" .. (math.floor((tonumber(a) or 1) * 0.55 * 100 + 0.5) / 100)
+  end
   return c .. "/0.55"
 end
 
