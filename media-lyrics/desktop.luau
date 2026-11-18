@@ -343,16 +343,21 @@ renderImpl = function()
   local artist = singleLine(s.artist ~= "" and s.artist or s.album)
   if artist == "" then artist = noctalia.tr("common.unknown-artist") end
 
-  -- maxLines = 1 is the real guard against the early word-wrap: the label must
-  -- never fold onto two lines (it shifted the whole lyric window down - owner:
-  -- "то названия пишутся в две строки, то артисты, хотя места хватает").
+  -- ONE line, guaranteed: maxLines = 1 (the label must never fold onto two -
+  -- it shifted the lyric window down: "то названия в две строки, то артисты").
+  -- The box is an EXPLICIT width= like the panel's textLine pattern - do NOT
+  -- use maxWidth here: the host's maxWidth units are not label pixels and it
+  -- ellipsised "Swedish House Mafia" at ~16 chars while free space remained
+  -- (owner: "место ещё очень много, а название сокращается"). fit() above only
+  -- adds the ellipsis on genuine overflow.
+  local infoW = textW - (showCover and 66 or 0)  -- header column: minus cover+gap
   local infoKids = {
-    ui.label({ key = "title", text = fit(title, textW, 15), fontSize = 15,
-      color = "on_surface", maxLines = 1, maxWidth = textW }),
+    ui.label({ key = "title", text = fit(title, infoW, 15), fontSize = 15,
+      color = "on_surface", maxLines = 1, width = infoW }),
   }
   if showArtist then
-    infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, textW, 12),
-      fontSize = 12, color = "on_surface_variant", maxLines = 1, maxWidth = textW })
+    infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, infoW, 12),
+      fontSize = 12, color = "on_surface_variant", maxLines = 1, width = infoW })
   end
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
