@@ -32,6 +32,13 @@ min = -2000
 max = 2000
 
 [[setting]]
+key = "karaoke_color"
+type = "color"
+label_key = "settings.karaoke_color.label"
+description_key = "settings.karaoke_color.description"
+default = "primary"
+
+[[setting]]
 key = "panel_size"
 type = "select"
 label_key = "settings.panel_size.label"
@@ -91,6 +98,7 @@ default = ""
 [[widget]]
 id = "now-playing"
 entry = "widget.luau"
+hover_highlight = false
 
   # Gestures mirror the shell's built-in media widget (noctalia-dev/noctalia
   # src/shell/bar/widget_gesture_defaults.cpp): right toggles playback, thumb

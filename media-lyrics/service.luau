@@ -272,7 +272,7 @@ local isPlaceholderLyrics = lyrics_lib.isPlaceholderLyrics
 
 -- chain: local dir -> embedded (xesam:asText) -> cache -> LRCLIB exact ->
 -- LRCLIB search -> NetEase fallback
-local function loadLyricsForTrack(artist, title, album, durationSec, key, embeddedText)
+local function loadLyricsForTrack(artist, title, album, durationSec, key, embeddedText, trackUrl)
   fetchGeneration = fetchGeneration + 1
   local gen = fetchGeneration
   -- claim the track key up front: while the fetch is in flight, subsequent
@@ -295,6 +295,14 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
 
   if trim(title) == "" then
     finishEmpty()
+    return
+  end
+
+  -- 0) sidecar .lrc next to the audio file (user file wins over cache)
+  local sidecarRaw = nil
+  local sp = lyrics_lib.sidecarLyricPath(trackUrl)
+  if sp then sidecarRaw = noctalia.readFile(sp) end
+  if sidecarRaw and acceptLyrics(noctalia.tr("provider.local"), sidecarRaw, "", key) then
     return
   end
 
@@ -776,21 +784,25 @@ local GET_PLAYERS = { "busctl", "--user", "--json=short", "call", "dev.noctalia.
 -- directly (argv-only busctl, once per track change). The reply is a
 -- Properties.Get variant: {type="v", data=[{type="a{sv}", data={...}}]}.
 local function fetchEmbeddedLyrics(busName, cb)
-  if busName == "" then cb("") return end
+  if busName == "" then cb("", "") return end
   local argv = { "busctl", "--user", "--json=short", "call", busName,
     "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get", "ss",
     "org.mpris.MediaPlayer2.Player", "Metadata" }
   noctalia.runAsync(argv, function(r)
-    if r.exitCode ~= 0 then cb("") return end
+    if r.exitCode ~= 0 then cb("", "") return end
     local payload = noctalia.json.decode(r.stdout or "")
     local outer = payload and payload.data
-    if type(outer) ~= "table" then cb("") return end
+    if type(outer) ~= "table" then cb("", "") return end
     local inner = outer[1]
     local fields = (type(inner) == "table" and type(inner.data) == "table") and inner.data or nil
-    if type(fields) ~= "table" then cb("") return end
+    if type(fields) ~= "table" then cb("", "") return end
     local v = fields["xesam:asText"]
-    if type(v) ~= "table" or v.type ~= "s" then cb("") return end
-    cb(tostring(v.data or ""))
+    local lyrics = ""
+    if type(v) == "table" and v.type == "s" then lyrics = tostring(v.data or "") end
+    local u = fields["xesam:url"]
+    local url = ""
+    if type(u) == "table" and u.type == "s" then url = tostring(u.data or "") end
+    cb(lyrics, url)
   end)
 end
 
@@ -903,6 +915,9 @@ end
 local function applyPlayer(f)
     local title = parseBusctlVariant(f.title) or ""
     local artist = parseBusctlVariant(f.artists) or ""
+    -- yt-music puts artist into title when xesam:artist is empty
+    local ft, fa = lyrics_lib.splitTitleArtist(title, artist)
+    title, artist = ft, fa
     local album = parseBusctlVariant(f.album) or ""
     local rawArtUrl = parseBusctlVariant(f.art_url) or ""
     local playing = (parseBusctlVariant(f.playback_status) == "Playing")
@@ -946,10 +961,10 @@ local function applyPlayer(f)
       invalidateLyrics()
       snapshot.lyricsStatus = "loading"
       publish()
-      fetchEmbeddedLyrics(busName, function(raw)
+      fetchEmbeddedLyrics(busName, function(raw, url)
         embeddedCache = raw or ""
         embeddedCacheKey = key
-        loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "")
+        loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "", url or "")
       end)
     else
       publish()
@@ -978,6 +993,9 @@ local function refreshPlayer()
     local f = body[2]
     local title = parseBusctlVariant(f.title) or ""
     local artist = parseBusctlVariant(f.artists) or ""
+    -- yt-music puts artist into title when xesam:artist is empty
+    local ft2, fa2 = lyrics_lib.splitTitleArtist(title, artist)
+    title, artist = ft2, fa2
     local album = parseBusctlVariant(f.album) or ""
     -- art_url is a file:// URI (local path) or an HTTP(S) URL (Spotify/web
     -- players); resolveArt turns either into a path ui.image can render.
@@ -1128,7 +1146,22 @@ function onEnable()
   refreshPlayer()
 end
 
+local suspended = false
+
+function onSuspend()
+  suspended = true
+  pcall(function() noctalia.setUpdateInterval(0) end)
+end
+
+function onResume()
+  suspended = false
+  pcall(function() noctalia.setUpdateInterval(POLL_MS) end)
+  refreshPlayer()
+  publish()
+end
+
 function update()
+  if suspended then return end
   refreshPlayer()
 end
 

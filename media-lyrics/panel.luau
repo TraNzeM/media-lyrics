@@ -1,4 +1,5 @@
 --!nonstrict
+local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics panel: cover art with progress line, track info + transport,
 -- karaoke lyric layer. Redesign v0.2 ("quiet premium"): one hero (the cover),
 -- minimal chrome, type-driven hierarchy. Layout (2 bands):
@@ -136,6 +137,11 @@ local function queueSeek(sec)
   seekPending = sec
   seekQueuedAt = nowMs()
   sendCmd("seekTo", { sec = sec })
+  pcall(function()
+    if noctalia and noctalia.osd and type(noctalia.osd.show) == "function" then
+      noctalia.osd.show("media-skip-forward", sec, { duration = 1200 })
+    end
+  end)
 end
 
 -- marquee phase state lives at module scope: buildInfoRow runs on EVERY
@@ -464,7 +470,7 @@ local function buildLyricsBody(s)
       -- karaoke block, and with a third flexGrow on the scroll the free height
       -- split three ways - the list ended up a third of the area with big gaps
       -- above and below it. The second return value tells render not to centre.
-      return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }, true
+      return { ui.scroll({ flexGrow = 1, align = "stretch", revealKey = "lyr" .. (cursorLine or active or 1) }, rows) }, true
     end
 
     -- synchronized: carousel around the playback line (karaoke fade ladder)
@@ -561,15 +567,44 @@ local function buildLyricsBody(s)
           color = T.lyricActive,
         })
       end
-      children[#children + 1] = ui.label({
-        key = "lbl" .. idx,
-        text = wrapLyric(s.lyrics[idx].text, fontSize, fontWeight, isCursor and 16 or 0),
-        fontSize = fontSize,
-        fontWeight = fontWeight,
-        color = color,
-        opacity = opacity,
-        textAlign = "center",
-      })
+      local labelText = wrapLyric(s.lyrics[idx].text, fontSize, fontWeight, isCursor and 16 or 0)
+      local hasFill = false
+      pcall(function() if type(ui.fillLabel) == "function" then hasFill = true end end)
+      if isActive and hasFill then
+        local lineStart = s.lyrics[idx].time or 0
+        local nextLine = (idx < n) and s.lyrics[idx + 1] or nil
+        local lineEnd = (nextLine and nextLine.time) or (s.lengthSec or (lineStart + 3))
+        local totalWords = 0
+        for _ in (s.lyrics[idx].text or ""):gmatch("%S+") do totalWords = totalWords + 1 end
+        local swept = (totalWords > 0) and (lyrics_lib.fillProgress(s.lyrics[idx].words, pos, lineStart, lineEnd, totalWords) or 0) or 0
+        local rowWords, ranges = 0, {}
+        for first, last in labelText:gmatch("()%S+()") do
+          rowWords = rowWords + 1
+          ranges[#ranges + 1] = first
+          ranges[#ranges + 1] = last - 1
+        end
+        local fill = (rowWords > 0) and { ranges = ranges, progress = math.max(0, math.min(rowWords, swept)) } or nil
+        if fill then
+          children[#children + 1] = ui.fillLabel({
+            key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+            fontWeight = fontWeight, color = color, opacity = opacity,
+            textAlign = "center", fillColor = T.lyricActive,
+            fillRanges = fill.ranges, fillProgress = fill.progress,
+          })
+        else
+          children[#children + 1] = ui.label({
+            key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+            fontWeight = fontWeight, color = color, opacity = opacity,
+            textAlign = "center",
+          })
+        end
+      else
+        children[#children + 1] = ui.label({
+          key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+          fontWeight = fontWeight, color = color, opacity = opacity,
+          textAlign = "center",
+        })
+      end
       local rowProps = {
         key = "lyr" .. idx,
         align = "center", justify = "center",
@@ -1164,4 +1199,12 @@ function onScroll(axis, steps, startsGesture)
   if axis ~= "vertical" or startsGesture then return end
   local dir = (steps or 0) > 0 and 1 or -1
   moveCursor(dir)
-end
+end-- Idle dim registration (noctalia.idle.watch, API 35): dim the widget surface
+-- when the host reports idle. Guarded so older shells keep working.
+pcall(function()
+  if noctalia and noctalia.idle and type(noctalia.idle.watch) == "function" then
+    noctalia.idle.watch(function(idle)
+      noctalia.state.set("idle_dimmed", idle == true)
+    end)
+  end
+end)

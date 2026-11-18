@@ -315,5 +315,17 @@ do
     .. (not falls and "\n      an unusable local file leaves the load unfinished" or ""))
 end
 
+-- \u2500\u2500 projectPosition / parseMediaPlayerResponse (v1.1.0 media task) \u2500\u2500
+do
+  ok(math.abs(lib.projectPosition(10, 1000, 2000, true) - 11.0) < 1e-6, "projectPosition advances when playing")
+  ok(lib.projectPosition(10, 1000, 2000, false) == 10, "projectPosition holds when paused")
+  ok(lib.projectPosition(10, 2000, 1000, true) == 10, "projectPosition clamps negative delta")
+  ok(lib.projectPosition(9.5, 0, 1000, true, 10) == 10, "projectPosition caps at length")
+  local p = lib.parseMediaPlayerResponse({ title = "T", artist = { "A", "B" }, playback_status = "Playing", length = 120000000, position = 5000000, bus_name = "org.mpris", identity = "zen" })
+  ok(p ~= nil and p.title == "T" and p.artist == "A, B" and p.playing == true, "parseMediaPlayerResponse handles list artist + playing")
+  ok(p.lengthSec == 120 and p.posSec == 5 and p.busName == "org.mpris", "parseMediaPlayerResponse converts microsecond fields")
+  ok(lib.parseMediaPlayerResponse(nil) == nil, "parseMediaPlayerResponse rejects non-table")
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

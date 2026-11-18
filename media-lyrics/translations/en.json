@@ -152,6 +152,10 @@
     "use_cache": {
       "description": "Store fetched lyrics in the plugin data directory for offline reuse.",
       "label": "Cache lyrics"
+    },
+    "karaoke_color": {
+      "label": "Karaoke fill color",
+      "description": "Color of the word-by-word karaoke sweep over the active lyric line."
     }
   }
 }

@@ -6,6 +6,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The active line fills word by word (karaoke) in the panel.** The fill follows the
+  real word onsets on word-timed lyrics and sweeps evenly on plain lines. Shells
+  without `ui.fillLabel` keep the current line highlight.
+- **A `.lrc` next to the audio file is picked up automatically.** For local files the
+  sidecar is asked first — before the configured folder and the cache — so the folder
+  layout everyone already uses just works.
+- **Drag a lyric line to seek.** Grab the line, drag up or down, and the track jumps to
+  that line's timestamp.
+- **The position moves smoothly.** The progress ring and the karaoke fill glide instead
+  of stepping on the 150 ms polling grid.
+- **Karaoke fill colour** is configurable (`karaoke_color`).
+- **The lyrics list follows the song** — it scrolls to the active line on its own.
+- **A seek OSD** shows the new position whenever the track is moved.
+
+### Changed
+
+- **The active player comes from the shell itself** (`noctalia.mediaPlayer()`) instead
+  of polling `busctl` twice a second: less CPU, less D-Bus traffic, easier on the
+  battery. Shells without the API keep the poll.
+- Background polling pauses while the system is suspended.
+- The bar widget no longer lights up entirely on hover.
+
+### Fixed
+
+- **A player that leaves `xesam:artist` empty no longer loses its lyrics.** Some players
+  (e.g. yt-music running mpv with `--force-media-title`) embed the artist into
+  `xesam:title` as `Title - Artist`; the title is now split on the last ` - ` when the
+  artist is empty, so the track identifies correctly. Fixes the case reported against
+  yt-music in community-plugins#1510.
+
 ## [1.0.2] — 2026-11-17
 
 ### Fixed

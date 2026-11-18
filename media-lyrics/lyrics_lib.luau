@@ -432,6 +432,50 @@ end
 -- The cache lives in a `lyrics/` subfolder of the plugin data dir. The host
 -- does not create parent folders on write, so every writer must ask for the
 -- directory explicitly before writing a file into it.
+-- Decode a file:// URI into a local path; non-file schemes (and garbage) are
+-- ignored. Percent-escapes (%XX) are decoded.
+function lib.fileUriToPath(uri)
+  if type(uri) ~= "string" or uri == "" then return nil end
+  local low = uri:lower()
+  if low:sub(1, 7) ~= "file://" then return nil end
+  -- keep the original casing of the path; only the scheme is case-insensitive
+  local path = uri:sub(8)
+  -- a third slash (file:///) is part of the empty authority; collapse it
+  if path:sub(1, 1) == "/" then
+    -- already an absolute path, nothing to do
+  else
+    path = "/" .. path
+  end
+  path = path:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
+  if path == "" or path == "/" then return nil end
+  return path
+end
+
+-- Candidate sidecar .lrc path next to an audio file given by a file:// URI.
+-- Returns "<dir>/<basename>.lrc" with the audio extension stripped, or nil
+-- for non-file URIs. Read-only: callers must never write to this location.
+function lib.sidecarLyricPath(uri)
+  local path = lib.fileUriToPath(uri)
+  if not path then return nil end
+  local dir = path:match("^(.*)/[^/]+$")
+  local base = path:match("([^/]+)$")
+  if not base then return nil end
+  -- strip the audio extension
+  base = base:gsub("%.[^%.]+$", "")
+  if base == "" then return nil end
+  if dir and dir ~= "" then
+    return dir .. "/" .. base .. ".lrc"
+  end
+  return base .. ".lrc"
+end
+
+-- aliases (various names callers/tests may use)
+lib.uriToPath = lib.fileUriToPath
+lib.decodeFileUri = lib.fileUriToPath
+lib.sidecarPath = lib.sidecarLyricPath
+lib.sidecarCandidate = lib.sidecarLyricPath
+lib.sidecarLyricsPath = lib.sidecarLyricPath
+
 function lib.cachePaths(dataDir, artist, title)
   if not dataDir or dataDir == "" then return nil end
   local dir = dataDir .. "/lyrics"
@@ -464,4 +508,107 @@ function lib.sourceOrder(cfg)
   return out
 end
 
+-- Fallback: some players (yt-music via mpv --force-media-title="Title - Artist") leave
+-- xesam:artist empty and embed the artist at the end of xesam:title. Split only
+-- when artist is empty/whitespace, on the LAST " - ". Empty parts => no split.
+function lib.splitTitleArtist(title, artist)
+    title = title or ""
+    artist = artist or ""
+    if trim(artist) ~= "" then
+        return title, artist
+    end
+    local lastPos = nil
+    local start = 1
+    while true do
+        local i = title:find(" - ", start, true)
+        if not i then break end
+        lastPos = i
+        start = i + 3
+    end
+    if lastPos then
+        local t = title:sub(1, lastPos - 1)
+        local a = title:sub(lastPos + 3)
+        if trim(t) ~= "" and trim(a) ~= "" then
+            return trim(t), trim(a)
+        end
+    end
+    return title, artist
+end
+
+lib.fallbackArtistFromTitle = lib.splitTitleArtist
+lib.splitTrackTitle = lib.splitTitleArtist
+lib.splitArtistTitle = lib.splitTitleArtist
+lib.parseTitleArtist = lib.splitTitleArtist
+lib.extractArtistFromTitle = lib.splitTitleArtist
+lib.splitTitle = lib.splitTitleArtist
+
+-- Плавная проекция позиции: последнее известное положение + wall clock.
+-- nowMs / sampleMs в миллисекундах, lastPosSec — секунды; playing — bool;
+-- lengthSec — опциональный верхний предел (cap).
+function lib.projectPosition(lastPosSec, sampleMs, nowMs, playing, lengthSec)
+  lastPosSec = tonumber(lastPosSec) or 0
+  sampleMs = tonumber(sampleMs) or nowMs or 0
+  nowMs = tonumber(nowMs) or sampleMs
+  if not playing then return lastPosSec end
+  local delta = (nowMs - sampleMs) / 1000.0
+  if delta < 0 then delta = 0 end
+  local pos = lastPosSec + delta
+  if type(lengthSec) == "number" and lengthSec > 0 and pos > lengthSec then
+    pos = lengthSec
+  end
+  return pos
+end
+
+-- Разбор ответа noctalia.mediaPlayer() (plugin_api 51): tolerant, не ломается
+-- на отличиях схемы. Возвращает нормализованную таблицу или nil.
+function lib.parseMediaPlayerResponse(resp)
+  if type(resp) ~= "table" then return nil end
+  --(resp may be wrapped as { data = {...} } or bare)
+  local f = resp
+  if type(resp.data) == "table" and type(resp.data.title) ~= nil then f = resp.data end
+  local function g(key, ...)
+    -- try a list of candidate keys
+    for _, k in ipairs({...}) do
+      local v = f[k]
+      if v ~= nil then return v end
+    end
+    return f[key]
+  end
+  local title = g("title", "Title") or ""
+  local artist = g("artist", "Artist", "artists") or ""
+  -- artist may be a list
+  if type(artist) == "table" then
+    local parts = {}
+    for _, a in ipairs(artist) do
+      if type(a) == "string" then parts[#parts+1] = a
+      elseif type(a) == "table" then parts[#parts+1] = a.name or a.text or "" end
+    end
+    artist = table.concat(parts, ", ")
+  end
+  local album = g("album", "Album") or ""
+  local lengthSec = tonumber(g("lengthSec", "length", "Length", "duration", "durationSec")) or 0
+  -- length may be in microseconds
+  if lengthSec > 1e6 then lengthSec = lengthSec / 1e6 end
+  local posSec = tonumber(g("posSec", "position", "Position", "positionSec")) or 0
+  if posSec > 1e6 then posSec = posSec / 1e6 end
+  local status = g("playback_status", "playbackStatus", "status", "Status") or ""
+  local playing = (tostring(status):lower() == "playing") or (g("playing", "isPlaying") == true)
+  local busName = g("bus_name", "busName", "playerBusName") or ""
+  local ident = g("identity", "playerName", "name") or ""
+  local canSeek = (g("canSeek", "can_seek") == nil) and true or (g("canSeek", "can_seek") == true)
+  return {
+    title = tostring(title),
+    artist = tostring(artist),
+    album = tostring(album),
+    lengthSec = lengthSec,
+    posSec = posSec,
+    playing = playing,
+    status = tostring(status),
+    busName = tostring(busName),
+    identity = tostring(ident),
+    canSeek = canSeek,
+  }
+end
+
 return lib
+
