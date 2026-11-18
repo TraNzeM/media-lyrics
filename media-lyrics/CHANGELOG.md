@@ -32,6 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The panel no longer freezes on one track.** A lost async poll — a burst of track
+  flips could exhaust the host's spawn slots — used to freeze the metadata, lyrics and
+  cover on the walked-past track while the clock kept running past its end. The poll
+  now re-arms itself after 5 s, and a late lyrics callback from an older track can no
+  longer glue the panel to that track.
+- **Cover fallback no longer renders as an empty square.** The fallback box used to
+  carry a `disc` glyph as a child and an `align` prop, which the host does not
+  support on `ui.box` (it dropped the child every tick and spam-logged `box`
+  warnings). The fallback is now a centered `ui.column` container, so the disc glyph
+  shows again and the log stays clean. Applied to panel, panel-mini and desktop entries.
+
+- **Track key format unified across service.luau.** All sites now use
+  longer leaves the plugin frozen on a stale track (metadata/text/art/timings
+  stuck). Gen-guards in finish paths prevent stale fetches from overwriting the
+  playing track.
+
 - **Metadata with embedded newlines no longer splits the header into stray rows.**
   `xesam:album` is now collapsed with `singleLine` like the title and artist already
   were, so an album like `A\nlive` can no longer cut the artist line onto a second

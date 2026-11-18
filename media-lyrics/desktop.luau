@@ -328,9 +328,9 @@ local function render()
       headKids[#headKids + 1] = ui.image({ key = "cover", path = s.artUrl,
         width = 56, height = 56, radius = 14, fit = "cover" })
     else
-      headKids[#headKids + 1] = ui.box({ key = "coverph", width = 56, height = 56,
-        radius = 14, fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
-        align = "center" }, {
+      headKids[#headKids + 1] = ui.column({ key = "coverph", width = 56, height = 56,
+        align = "center", justify = "center", radius = 14,
+        fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1 }, {
         ui.glyph({ name = live and "disc" or "music-off", size = 30, color = "on_surface_variant" }),
       })
     end

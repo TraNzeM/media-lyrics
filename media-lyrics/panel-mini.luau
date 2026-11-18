@@ -71,7 +71,8 @@ local function buildCover(s)
     return ui.image({ key = "cover", path = art, width = T.cover, height = T.cover,
       fit = "cover", radius = T.coverRadius })
   end
-  return ui.box({ key = "coverbox", width = T.cover, height = T.cover,
+  return ui.column({ key = "coverbox", width = T.cover, height = T.cover,
+    align = "center", justify = "center",
     fill = "surface_container/0.6", radius = T.coverRadius }, {
       ui.glyph({ name = "disc", size = 40, color = "on_surface_variant" }),
     })

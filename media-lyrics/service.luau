@@ -827,6 +827,7 @@ local function clearPlayer()
 end
 
 local refreshInFlight = false
+local refreshStartedMs = 0
 
 -- ── artwork resolution ─────────────────────────────────────────────────────
 -- MPRIS art_url is either a local path (file:// URI, e.g. mpv/zen) or an HTTP(S)
@@ -962,6 +963,11 @@ local function applyPlayer(f)
       snapshot.lyricsStatus = "loading"
       publish()
       fetchEmbeddedLyrics(busName, function(raw, url)
+        -- A stale callback from a PREVIOUS track must not re-claim its old
+        -- key (rapid prev/next: this closure captured the old track's key and
+        -- regressed currentTrackKey, gluing the panel to the walked-past
+        -- track). The key is current only if nothing newer claimed it.
+        if currentTrackKey ~= key then return end
         embeddedCache = raw or ""
         embeddedCacheKey = key
         loadLyricsForTrack(artist, title, album, snapshot.lengthSec, key, raw or "", url or "")
@@ -972,8 +978,15 @@ local function applyPlayer(f)
 end
 
 local function refreshPlayer()
-  if refreshInFlight then return end
+  -- The in-flight guard must SELF-HEAL: when the async callback is lost —
+  -- host spawn saturation during a burst of track flips — a plain boolean
+  -- stayed set forever, the poll died and the snapshot froze on one track
+  -- while the interpolated clock kept running (owner: "плагин завис на треке,
+  -- время улетело"). A refresh stuck longer than 5 s is presumed dead and
+  -- the poll re-arms.
+  if refreshInFlight and (nowMs() - refreshStartedMs) < 5000 then return end
   refreshInFlight = true
+  refreshStartedMs = nowMs()
   noctalia.runAsync(GET_ACTIVE, function(result)
     refreshInFlight = false
     if result.exitCode ~= 0 or trim(result.stdout or "") == "" then
@@ -1135,7 +1148,7 @@ function onConfigChanged()
   invalidateLyrics()
   refreshPlayer()
   if title ~= "" then
-    local key = snapshot.playerName .. "|" .. title .. "|" .. artist .. "|" .. tostring(snapshot.lengthSec * 1e6)
+    local key = snapshot.playerName .. "|" .. title .. "|" .. artist .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
     loadLyricsForTrack(artist, title, snapshot.album, snapshot.lengthSec, key,
       (embeddedCacheKey == key) and embeddedCache or "")
   end

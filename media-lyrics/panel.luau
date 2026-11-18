@@ -681,8 +681,9 @@ local function buildCover(s, coverSize)
       onClick = function() sendCmd("toggle") end,
     })
   else
-    -- no art: show a fallback disc glyph
-    return ui.box({ key = "coverbox", width = COVER, height = COVER,
+    -- no art: show a fallback disc glyph (box cannot host children -> use column)
+    return ui.column({ key = "coverbox", width = COVER, height = COVER,
+      align = "center", justify = "center",
       fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
         ui.glyph({ name = "disc", size = math.max(28, COVER - 8), color = "on_surface_variant" }),
@@ -982,7 +983,7 @@ local function buildInfoRow(s)
   }, {
     textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("common.no-title")),
       T.fsTitle, "semibold", T.colTitle),
-    textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
+    textLine("art", artistLine, T.fsMeta, nil, T.colMeta),
   })
 
   -- single band, everything centered on the art's vertical axis.
