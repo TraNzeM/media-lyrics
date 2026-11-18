@@ -1176,7 +1176,7 @@ function onConfigChanged()
   invalidateLyrics()
   refreshPlayer()
   if title ~= "" then
-    local key = snapshot.playerName .. "|" .. title .. "|" .. artist .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+    local key = lyrics_lib.trackKey(snapshot.playerName, title, artist, snapshot.lengthSec * 1e6)
     loadLyricsForTrack(artist, title, snapshot.album, snapshot.lengthSec, key,
       (embeddedCacheKey == key) and embeddedCache or "")
   end
