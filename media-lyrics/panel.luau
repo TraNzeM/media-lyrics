@@ -80,6 +80,7 @@ local hoveredLine = 0  -- pointer hovered lyric line (0 = none); applied on the 
 local SEEK_HOLD_MS = 15000
 local seekPending = -1        -- seconds queued for seek, -1 = none
 local seekQueuedAt = 0        -- ms of the request (0 = nothing pending)
+local lastSeekSentMs = 0      -- drag throttle: one SetPosition per 150 ms max
 
 local showCandidates = false -- "choose lyrics" selector open (toggled by the header button)
 local marqueePaused = false -- pointer over the title/artist block pauses marquees
@@ -126,11 +127,17 @@ end
 -- capture them as nil globals and every seek would fail with
 -- "attempt to call a nil value". The host is NOT guaranteed to re-run the
 -- slider's onChange, so the caller must not rely on that callback to set the hold.
-local function queueSeek(sec)
+local function queueSeek(sec, throttle)
   sec = tonumber(sec)
   if not sec then return end
   seekPending = sec
   seekQueuedAt = nowMs()
+  -- Drag throttle: onChange fires on EVERY pixel of a scrub and each send
+  -- spawned a busctl SetPosition + a sleep-refresh (process storm). During a
+  -- drag at most one seek per 150 ms leaves the plugin; the final target is
+  -- always sent from onDragEnd.
+  if throttle and (nowMs() - lastSeekSentMs) < 150 then return end
+  lastSeekSentMs = nowMs()
   sendCmd("seekTo", { sec = sec })
   -- No OSD popup here: the seek slider already shows the target position and
   -- the overlay ("icon + seconds" over the screen) read as a surprise on every
@@ -720,8 +727,8 @@ local function buildProgressBar(s)
     local sec = tonumber(v)
     if not sec then return end
     if math.abs(sec - painted) < 0.5 then return end   -- echo of our own value
-    queueSeek(sec)                 -- hold + send in one place (the host may not
-  end                              -- re-fire onChange, so never rely on it here)
+    queueSeek(sec, true)               -- throttled during the drag; hold + send
+  end                              -- in one place (the host may not re-fire)
 
   return ui.slider({
     key = "seek",
@@ -736,9 +743,15 @@ local function buildProgressBar(s)
     enabled = (s.hasPlayer == true) and (total > 0),
     controlSize = "sm",
     onChange = onScrub,
-    -- the host calls onDragEnd with no value; the last onChange already
-    -- queued the target, so this only marks the interaction as finished.
-    onDragEnd = function() seekQueuedAt = nowMs() end,
+    -- the host calls onDragEnd with no value; flush the final target (the
+    -- drag throttle may have suppressed the last sends) and mark it live.
+    onDragEnd = function()
+      seekQueuedAt = nowMs()
+      if seekPending >= 0 then
+        lastSeekSentMs = 0
+        queueSeek(seekPending)
+      end
+    end,
   })
 end
 

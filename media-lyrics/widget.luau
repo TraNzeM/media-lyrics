@@ -80,6 +80,7 @@ local toChars = lyrics_lib.toChars
 local scrollOffset = 0
 local scrollTick = 0
 local hovered = false
+local hoverDirty = false  -- set by onHover; the update() tick repaints
 local lastFull = ""
 
 local function activeLyricLine(m)
@@ -372,7 +373,10 @@ local function renderFrom(m, force)
       local h = (state == "true")
       if h ~= hovered then
         hovered = h
-        renderFrom(media(), true)
+        -- NEVER call render() inside onHover: re-creating the tree mid-event
+        -- dispatch kills the host (documented in panel.luau). The update() tick
+        -- repaints with the new hover state within 120 ms.
+        hoverDirty = true
       end
     end,
   }, { label })
@@ -413,6 +417,11 @@ end
 function update()
   local m = media()
   if not m then return end
+  if hoverDirty then
+    hoverDirty = false
+    renderFrom(m, true)
+    return
+  end
   if not m.hasPlayer then
     renderFrom(m, false)
     return

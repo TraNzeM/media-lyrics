@@ -882,7 +882,9 @@ local function resolveArt(url, key, syncFn)
   end
   -- file:// URI or a bare local path -> already renderable
   if not isRemoteArt(url) then
-    syncFn((url:gsub("^file://", "")))
+    -- Percent-decode the path (file:///a%20b.png must resolve to "a b.png";
+    -- a bare gsub keeps the escapes and the cover silently disappears).
+    syncFn(lyrics_lib.fileUriToPath(url) or (url:gsub("^file://", "")))
     return
   end
   -- remote: serve a memoized copy when we already downloaded this exact URL
