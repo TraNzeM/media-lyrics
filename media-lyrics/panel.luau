@@ -488,7 +488,9 @@ local function buildLyricsBody(s)
   for i = 1, n do
     local isA = (i == active)
     local isC = (i == cursorLine)
-    local d = math.abs(i - active)
+    -- Before the first timestamp (active == -1) the ladder measures from the
+    -- anchor line (the upcoming line) so nothing bold/glows early.
+    local d = math.abs(i - (active >= 1 and active or 1))
     fsArr[i] = isA and T.fsActiveLyric or (d <= 2 and T.fsNearLyric or T.fsFarLyric)
     wArr[i] = (isA or isC) and "bold" or (d <= 2 and "medium" or "normal")
   end

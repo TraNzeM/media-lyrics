@@ -373,8 +373,14 @@ local function render()
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
   if lines then
     local n = #lines
-    -- activeLine returns 0 until the playhead passes the first timestamp
-    local active = math.min(math.max(activeLine(s), 1), n)
+    -- activeLine returns 0 until the playhead passes the first timestamp.
+    -- The WINDOW anchor clamps to 1 (so the list is anchored during the intro),
+    -- but the STYLED line must stay "none": the first line may not glow before
+    -- it is actually sung (owner: "светится с самого начала, а текст ещё не
+    -- начался"). curIdx 0 = nothing is current.
+    local rawActive = activeLine(s)
+    local active = math.min(math.max(rawActive, 1), n)
+    local curIdx = (rawActive >= 1) and rawActive or 0
     local function pieces(i)
       local w = wrapLyric(singleLine(lines[i].text), fontSz, textW) .. "\n"
       local out = {}
@@ -413,9 +419,16 @@ local function render()
 
     local wordsBefore = 0
     for i = lo, hi do
-      local kind = (i == active) and "cur"
-        or (((i == active + 1) or (i == active - 1)) and "near" or "far")
-      if i ~= active then wordsBefore = 0 end
+      -- Style ladder: "cur" ONLY for the real current line (never during the
+      -- intro); the anchor line of the intro reads as "near" at most.
+      local kind
+      if curIdx > 0 and i == curIdx then
+        kind = "cur"
+      else
+        local ref = (curIdx > 0) and curIdx or active
+        kind = (math.abs(i - ref) <= 1) and "near" or "far"
+      end
+      if i ~= curIdx then wordsBefore = 0 end
       for _, piece in ipairs(pieces(i)) do
         slotText[#slotText + 1] = piece
         slotKind[#slotKind + 1] = kind

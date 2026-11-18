@@ -126,12 +126,16 @@ do
   local src = io.open(dir .. "/../media-lyrics/desktop.luau")
   local body = src and src:read("a") or ""
   if src then src:close() end
-  local clamped = body:find("math.min(math.max(activeLine(s), 1), n)", 1, true) ~= nil
+  local clamped = body:find("math.min(math.max(rawActive, 1), n)", 1, true) ~= nil
   local raw = body:find("local active = activeLine(s)", 1, true) ~= nil
-  ok(clamped and not raw,
-    "desktop.luau clamps activeLine(s) into 1..n before indexing lyrics"
+  -- The styled line is separate from the window anchor (curIdx): line 1 may
+  -- not glow before it is sung, while the window stays anchored at 1.
+  local separated = body:find("local curIdx = (rawActive >= 1) and rawActive or 0", 1, true) ~= nil
+  ok(clamped and not raw and separated,
+    "desktop.luau clamps the anchor into 1..n and keeps the styled line separate"
     .. (not clamped and "\n      the clamp is missing" or "")
-    .. (raw and "\n      a raw `local active = activeLine(s)` is back" or ""))
+    .. (raw and "\n      a raw `local active = activeLine(s)` is back" or "")
+    .. (not separated and "\n      the anchor/styled split (curIdx) is missing" or ""))
 end
 
 -- ── source guard: the middle band has a fixed number of slots ──
