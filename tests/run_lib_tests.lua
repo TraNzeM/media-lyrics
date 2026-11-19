@@ -409,5 +409,15 @@ do
   ok(inOrder, "plain order: 40 plain lines keep source order")
 end
 
+-- per-track offset combination (global + override, reset)
+do
+  ok(lib.effectiveOffsetMs(200, nil) == 200, "per-track offset: nil override -> global only")
+  ok(lib.effectiveOffsetMs(200, 100) == 300, "per-track offset: global + override")
+  ok(lib.effectiveOffsetMs(200, -200) == 0, "per-track offset: override cancels global")
+  ok(lib.isMetadataLine("[length:3:30]") == true, "metadata: [length:] tag is not a lyric line")
+  ok(lib.isMetadataLine("[ar:Test]") == true, "metadata: [ar:] tag is not a lyric line")
+end
+
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end

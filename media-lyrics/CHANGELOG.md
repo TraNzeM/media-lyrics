@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of stepping on the 150 ms polling grid.
 - **Karaoke fill colour** is configurable (`karaoke_color`).
 - **The lyrics list follows the song** — it scrolls to the active line on its own.
+|- **Per-track timing offset.** `+`/`-` (100 ms) buttons and a reset next to the
+  progress time let you nudge one track's lyrics independently of the global
+  `offset_ms`; the override is stored in `offsets.json` in the plugin data dir
+  and survives a plugin restart. Keyboard: `Right` = +100 ms, `Left` = -100 ms,
+  `Tab` = reset (same handler as the buttons).
 - **A seek OSD** shows the new position whenever the track is moved.
 
 ### Changed

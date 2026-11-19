@@ -805,8 +805,21 @@ local function buildInfoRow(s)
       }),
       ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl, "Next track"),
     }),
-    ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
-      fontSize = T.fsTime, color = T.colTime }),
+    ui.column({ key = "timeCol", gap = 2, align = "center" }, {
+      ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
+        fontSize = T.fsTime, color = T.colTime }),
+      ui.row({ key = "offsetRow", gap = T.gapMicro, align = "center" }, {
+        ui.button({ key = "offDown (-100)", text = "-", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = -100 }) end }),
+        ui.button({ key = "offUp (+100)", text = "+", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = 100 }) end }),
+        ui.button({ key = "offReset (reset)", text = "reset", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", reset = true }) end }),
+      }),
+    }),
   })
 
   -- middle block: title + artist - album (no wrap, marquee for overflow).
@@ -1173,8 +1186,9 @@ end
 -- Manual lyric scroll. The host's chord validator accepts only a small set
 -- of key names (Up/Down/Left/Right/Return/Space/Escape/Tab — used by
 -- community plugins); PageUp/PageDown/Home/End are REJECTED by the catalog
--- scan and drop the plugin from the store, so only Up/Down/Return/Space are
--- declared. Up/Down step the cursor, Return/Space seek to the cursor line.
+-- scan and drop the plugin from the store, so only Up/Down/Left/Right/
+-- Return/Space/Tab are declared. Up/Down step the cursor, Return/Space seek
+-- to the cursor line, Left/Right nudge the per-track offset, Tab resets it.
 -- The window never leaves [1..n] (clamped in buildLyricsBody).
 function onKey(chord, pressed)
   if not pressed then return end
@@ -1184,6 +1198,16 @@ function onKey(chord, pressed)
     moveCursor(1)
   elseif chord == "Return" or chord == "Space" then
     seekCursor()
+  elseif chord == "Right" or chord == "Left" or chord == "Tab" then
+    -- Per-track timing offset without touching the mouse: Right = +100 ms,
+    -- Left = -100 ms, Tab = reset to the global offset. Same request the
+    -- +/-/reset buttons send, so one handler serves both.
+    if chord == "Tab" then
+      noctalia.state.set("panel_req", { action = "adjustOffset", reset = true })
+    else
+      noctalia.state.set("panel_req",
+        { action = "adjustOffset", delta = (chord == "Right") and 100 or -100 })
+    end
   end
 end
 

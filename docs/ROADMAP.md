@@ -23,6 +23,13 @@ without naming them), and design decisions worth remembering.
       both need API keys or OAuth tokens, so they can only ship as an opt-in
       "bring your own key" setting. (Every no-auth source we know of is done —
       see the checked entries below.)
+- [ ] **Sweep animations for the active line (plugin_api 52 transforms)** —
+      deferred on purpose: the carousel render is static per frame and a
+      transform-driven sweep needs its own budget pass (the 25 ms callback cap);
+      revisit as a self-contained change.
+- [ ] **`ui.ring` position indicator (plugin_api 55)** — waiting on the host
+      release that ships API 55 (main-only as of 2026-11-19, expected in
+      Noctalia 5.6.0).
 - [x] **Seek on progress-bar click** — the bar is now a `ui.slider`, the same
       control the shell's media tab uses: click to jump, drag to scrub. The
       "blocked" note was right about the mechanism (click handlers report no

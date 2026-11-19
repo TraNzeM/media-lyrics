@@ -367,7 +367,7 @@ position = "center"
 # preset back to "top" without editing the manifest.
 layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 [[panel]]
 id = "panel-compact"
@@ -376,7 +376,7 @@ width = 440
 height = 440
 layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 [[panel]]
 id = "panel-large"
@@ -385,7 +385,7 @@ width = 640
 height = 640
 layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 # Compact mini panel: cover + current lyric line only, PINNED to the desktop
 # (placement = "floating", position = "center"). A lightweight always-on

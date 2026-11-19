@@ -145,6 +145,44 @@ local function cacheLyrics(artist, title, synced, plain)
   noctalia.writeFile(plan.file, body)
 end
 
+local function offsetsPath()
+  local d = noctalia.pluginDataDir()
+  if not d or d == "" then return nil end
+  return d .. "/offsets.json"
+end
+
+local function readOffsets()
+  local p = offsetsPath()
+  if not p then return {} end
+  local raw = noctalia.readFile(p)
+  local t = raw and decode(raw) or nil
+  if type(t) == "table" then return t end
+  return {}
+end
+
+local function writeOffsets(t)
+  local p = offsetsPath()
+  if not p then return end
+  local base = noctalia.pluginDataDir()
+  if base and base ~= "" then noctalia.mkdirAll(base) end
+  noctalia.writeFile(p, noctalia.json.encode(t or {}))
+end
+
+local function getTrackOffset(key)
+  if not key or key == "" then return nil end
+  local t = readOffsets()
+  local v = t[key]
+  if type(v) == "number" then return v end
+  return nil
+end
+
+local function setTrackOffset(key, value)
+  if not key or key == "" then return end
+  local t = readOffsets()
+  if value == nil then t[key] = nil else t[key] = tonumber(value) or 0 end
+  writeOffsets(t)
+end
+
 local function tryLocalLyrics(artist, title)
   local dirCfg = noctalia.getConfig("local_lyrics_dir")
   if not dirCfg or trim(dirCfg) == "" then return nil end
@@ -214,7 +252,10 @@ end
 local function acceptLyrics(provider, synced, plain, key)
   local raw = synced ~= "" and synced or plain
   if trim(raw) == "" then return false end
-  local offsetMs = tonumber(noctalia.getConfig("offset_ms")) or 0
+  -- per-track override lives in offsets.json; effective = global + override
+  local globalOffset = tonumber(noctalia.getConfig("offset_ms")) or 0
+  local override = getTrackOffset(key)
+  local offsetMs = lyrics_lib.effectiveOffsetMs(globalOffset, override)
   -- pcall: a parse failure must reject this candidate, not kill the async
   -- callback — a dead callback unwinds past finishEmpty/finishError and the
   -- panel sticks on "Loading lyrics..." (community-plugins issue #1494).
@@ -1260,6 +1301,16 @@ noctalia.state.watch("panel_req", function(value)
     -- User opened the lyrics-variant picker: fetch LRCLIB search candidates
     -- on demand and publish the list without touching the playing lyrics.
     openLyricChoices()
+  elseif value.action == "adjustOffset" then
+    -- per-track offset: delta ms (or reset to global). Rebuild timeline.
+    local key = snapshotKey()
+    if value.reset then
+      setTrackOffset(key, nil)
+    else
+      local cur = getTrackOffset(key) or 0
+      setTrackOffset(key, cur + (tonumber(value.delta) or 0))
+    end
+    onConfigChanged()
   elseif value.action == "chooseLyrics" then
     -- User picked a variant from the "choose lyrics" selector. index 0 =
     -- "Default" (restore the automatic chain); 1-based into

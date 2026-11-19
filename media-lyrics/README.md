@@ -132,7 +132,8 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 - **Karaoke lyric carousel** — 9/12/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
-- **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
+- **Clickable lyric lines** — click a synced line to seek the player to that timestamp. Drag a line up/down to scrub.
+- **Per-track timing offset** — `+`/`-` buttons (100 ms) next to the progress time nudge one track's lyrics; `reset` (or `Tab`) returns to the global `offset_ms`. `Right`/`Left` keys do the same. Overrides persist in `offsets.json`.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **Word-timed source (lrcmux)** — asked first by default: it answers with
   per-word timestamps, which the karaoke sweep rides on; a wrong recording is

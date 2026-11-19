@@ -88,7 +88,7 @@ function lib.isMetadataLine(line)
   local basic = l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
     or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
     or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
-    or l:match("^%[offset%s*:") ~= nil
+    or l:match("^%[offset%s*:") ~= nil or l:match("^%[length%s*:") ~= nil
   if basic then return true end
   return lib.isNetEaseMetaLine(line)
 end
@@ -821,5 +821,12 @@ function lib.trackKey(ident, title, artist, lengthUs)
     .. tostring(math.floor((tonumber(lengthUs) or 0) + 0.5))
 end
 
-return lib
+-- Combine the global offset setting with a per-track override. An empty/nil
+-- override means "global only"; a numeric override adds to the global value.
+function lib.effectiveOffsetMs(globalMs, overrideMs)
+  local g = tonumber(globalMs) or 0
+  if type(overrideMs) == "number" then return g + overrideMs end
+  return g
+end
 
+return lib
