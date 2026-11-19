@@ -829,4 +829,12 @@ function lib.effectiveOffsetMs(globalMs, overrideMs)
   return g
 end
 
+-- Mutate a per-track offsets map (pure; the service owns the IO): a numeric
+-- value sets/replaces the override, nil removes it. Bad values coerce to 0.
+function lib.updateOffsetMap(t, key, value)
+  if type(t) ~= "table" or not key or key == "" then return t end
+  if value == nil then t[key] = nil else t[key] = tonumber(value) or 0 end
+  return t
+end
+
 return lib

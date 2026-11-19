@@ -416,6 +416,21 @@ do
   ok(lib.effectiveOffsetMs(200, -200) == 0, "per-track offset: override cancels global")
   ok(lib.isMetadataLine("[length:3:30]") == true, "metadata: [length:] tag is not a lyric line")
   ok(lib.isMetadataLine("[ar:Test]") == true, "metadata: [ar:] tag is not a lyric line")
+
+  -- updateOffsetMap: set / replace / remove / coerce / degenerate inputs
+  local m = {}
+  lib.updateOffsetMap(m, "k", 100)
+  ok(m.k == 100, "offset map: set")
+  lib.updateOffsetMap(m, "k", 50)
+  ok(m.k == 50, "offset map: replace, not accumulate")
+  lib.updateOffsetMap(m, "k", "300")
+  ok(m.k == 300, "offset map: string value coerces")
+  lib.updateOffsetMap(m, "k", "junk")
+  ok(m.k == 0, "offset map: junk value coerces to 0")
+  lib.updateOffsetMap(m, "k", nil)
+  ok(m.k == nil, "offset map: nil removes the override")
+  ok(lib.updateOffsetMap(m, "", 5) == m, "offset map: empty key is a no-op")
+  ok(lib.updateOffsetMap(nil, "k", 5) == nil, "offset map: non-table is a no-op")
 end
 
 

@@ -151,13 +151,25 @@ local function offsetsPath()
   return d .. "/offsets.json"
 end
 
-local function readOffsets()
+-- In-memory copy of offsets.json: ONE source of truth per VM. Reads and the
+-- read-modify-write in adjustOffset hit this table, so rapid requests cannot
+-- lose updates (callbacks run serialized on the host's timer). The file is
+-- persistence only. The host exposes no rename, so tmp+rename atomicity is
+-- unavailable; a torn write on crash degrades to {} on the next load and is
+-- accepted. writeOffsets verifies its write and retries once.
+local offsetsCache = nil
+
+local function loadOffsets()
+  if offsetsCache then return offsetsCache end
   local p = offsetsPath()
-  if not p then return {} end
-  local raw = noctalia.readFile(p)
-  local t = raw and decode(raw) or nil
-  if type(t) == "table" then return t end
-  return {}
+  local t = {}
+  if p then
+    local raw = noctalia.readFile(p)
+    local d = raw and decode(raw) or nil
+    if type(d) == "table" then t = d end
+  end
+  offsetsCache = t
+  return t
 end
 
 local function writeOffsets(t)
@@ -165,22 +177,24 @@ local function writeOffsets(t)
   if not p then return end
   local base = noctalia.pluginDataDir()
   if base and base ~= "" then noctalia.mkdirAll(base) end
-  noctalia.writeFile(p, noctalia.json.encode(t or {}))
+  local body = noctalia.json.encode(t or {})
+  noctalia.writeFile(p, body)
+  -- verify-and-retry: a silent writeFile failure must not drop an adjustment
+  if noctalia.readFile(p) ~= body then
+    noctalia.writeFile(p, body)
+  end
 end
 
 local function getTrackOffset(key)
   if not key or key == "" then return nil end
-  local t = readOffsets()
-  local v = t[key]
+  local v = loadOffsets()[key]
   if type(v) == "number" then return v end
   return nil
 end
 
 local function setTrackOffset(key, value)
   if not key or key == "" then return end
-  local t = readOffsets()
-  if value == nil then t[key] = nil else t[key] = tonumber(value) or 0 end
-  writeOffsets(t)
+  writeOffsets(lyrics_lib.updateOffsetMap(loadOffsets(), key, value))
 end
 
 local function tryLocalLyrics(artist, title)
