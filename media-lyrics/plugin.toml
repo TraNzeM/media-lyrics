@@ -11,9 +11,8 @@
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
 version = "1.0.2"
-# plugin_api keeps 43 on purpose: it is the documented maximum and the
-# plugin does not need anything newer (noctalia-plugin-development).
-plugin_api = 43
+# plugin_api = 51 (v1.1.0 target): enables follow-layer panels and newer UI.
+plugin_api = 51
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service", "desktop"]
@@ -366,7 +365,7 @@ position = "center"
 # Overlay layer keeps the lyrics above fullscreen windows (karaoke over
 # video). Per-entry Layer dropdown in Settings -> Plugins can switch any
 # preset back to "top" without editing the manifest.
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -375,7 +374,7 @@ id = "panel-compact"
 entry = "panel.luau"
 width = 440
 height = 440
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -384,7 +383,7 @@ id = "panel-large"
 entry = "panel.luau"
 width = 640
 height = 640
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -410,7 +409,7 @@ width = 360
 height = 120
 placement = "floating"
 position = "center"
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "none"
 dismiss_on_outside_click = false
 persistent = true

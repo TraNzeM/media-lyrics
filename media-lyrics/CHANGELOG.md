@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Plain (untimed) lines keep their original file order.** `parseLrc` now tie-breaks
+  lines with equal timestamps (including lines without timestamps) by their position
+  in the file, so `table.sort` no longer shuffles unsynced lyrics. Reported and
+  patch suggested by @Coimbrice.
+
 - **Cyrillic weighs about half an em per glyph instead of a full em.** `charAdv` now
   returns 1.0 only for CJK/emoji (3+ byte sequences) and ~0.58 for other non-ASCII,
   so Russian lyrics stop being truncated roughly twice too early. LRCLIB User-Agent

@@ -168,11 +168,15 @@ function lib.parseLrc(text, offsetMs)
   table.sort(result, function(a, b)
     local at, bt = a.time >= 0, b.time >= 0
     if at ~= bt then return at end
+    -- Equal timestamps (including \"no timestamp\" / unsynced lines) tie-break
+    -- on the original file order, so plain lyrics never get reshuffled.
     if at and bt then
       if a.time ~= b.time then return a.time < b.time end
       return ord[a] < ord[b] -- stability
     end
-    return false
+    -- at != bt: synced lines always sort before unsynced ones.
+    if at ~= bt then return at end
+    return ord[a] < ord[b] -- unsynced / equal plain lines keep file order
   end)
   return result
 end

@@ -395,5 +395,19 @@ do
   ok(lib.truncEm("Mandala", 3.0) == exp .. "…", "truncEm: cuts by width at a glyph boundary")
 end
 
+-- ── parseLrc: plain lines keep source order (40 lines) ──
+do
+  local n = 40
+  local lines = {}
+  for i = 1, n do lines[i] = string.format("Plain line %02d", i) end
+  local parsed = lib.parseLrc(table.concat(lines, "\n"), 0)
+  ok(#parsed == n, "plain order: " .. n .. " lines parsed")
+  local inOrder = true
+  for i = 1, n do
+    if parsed[i].text ~= lines[i] then inOrder = false break end
+  end
+  ok(inOrder, "plain order: 40 plain lines keep source order")
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then os.exit(1) end
