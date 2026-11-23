@@ -24,6 +24,9 @@ end
 -- desktop widget drives the very same service.
 
 local snap = nil
+-- Published position used for LINE SELECTION (matches the panel/state publish cadence).
+local lineClockPos = 0
+
 -- Last visibility pushed to desktopWidget.setVisible; only send on change.
 local shown = true
 
@@ -196,48 +199,12 @@ local function wrapLyric(text, fontSize, maxW)
   return r
 end
 
--- Position now, interpolated from the last published sample (the service only
--- publishes every 150 ms; the desktop widget ticks on second boundaries, so a
--- naive read would step visibly).
-local function interpPos(s)
-  if type(s) ~= "table" then return 0 end
-  local base = tonumber(s.posSec) or 0
-  if not s.playing then return base end
-  local at = tonumber(s.posAtMs) or 0
-  if at <= 0 then return base end
-  local nowMs = 0
-  pcall(function() nowMs = noctalia.nowMs() end)
-  if nowMs <= 0 or nowMs < at then return base end
-  local pos = base + (nowMs - at) / 1000
-  local len = tonumber(s.lengthSec) or 0
-  if len > 0 and pos > len then pos = len end
-  return pos
-end
-
--- Live playback position straight from MPRIS (plugin_api 51) — the same source
--- the official lyrics widget reads, so the sweep tracks the voice instead of a
--- 150 ms-old service sample. Older shells fall back to the interpolation above.
-local function posNow(s)
-  local ok, p = pcall(function() return noctalia.mediaPlayer() end)
-  if ok and type(p) == "table" then
-    local ms = tonumber(p.positionMs)
-    if ms and ms >= 0 then
-      local pos = ms / 1000
-      local len = tonumber(s and s.lengthSec) or 0
-      if len > 0 and pos > len then pos = len end
-      return pos
-    end
-  end
-  return interpPos(s)
-end
-
 -- Which lyric line is current: the last line whose timestamp has passed.
--- posOverride: a position already sampled this render (posNow hits the host
--- synchronously - activeLine/sweep/time label must share ONE sample per
--- render, not three).
+-- posOverride: a position already sampled this render (interpPos stays stable
+-- within a render; sweep/time label share ONE sample per render).
 local function activeLine(s, posOverride)
   if type(s) ~= "table" or type(s.lyrics) ~= "table" then return 0 end
-  local pos = posOverride or posNow(s)
+  local pos = posOverride or lyrics_lib.interpPos(s)
   local idx = 0
   for i = 1, #s.lyrics do
     local t = tonumber(s.lyrics[i].time) or -1
@@ -298,10 +265,14 @@ renderImpl = function()
 
   local live = (type(snap) == "table" and snap.hasPlayer == true)
   local s = live and snap or idleSnapshot()
-  -- ONE synchronous host sample per render shared by the active line, the
-  -- karaoke sweep and the time label (three posNow calls per frame-tick were
-  -- up to ~120 MPRIS round-trips per second inside the 25 ms budget).
-  local posLive = posNow(s)
+  -- ONE position sample per render shared by the active line, the karaoke sweep
+  -- and the time label.
+  local posLive = lyrics_lib.interpPos(s)
+  -- Line selection uses the PUBLISHED position (lineClockPos) so the desktop
+  -- widget switches lines together with the panel/mini/bar; posLive survives
+  -- only for the smooth per-frame word sweep (fillProgress). Frame ticks advance
+  -- only fillProgress; line selection is tied to state publishing, not per-frame.
+  local linePos = lineClockPos
 
   -- Hide as a whole (card included) while there is nothing to show. Same rules
   -- as the official lyrics widget: no player -> hide_when_no_media decides,
@@ -384,7 +355,7 @@ renderImpl = function()
     -- but the STYLED line must stay "none": the first line may not glow before
     -- it is actually sung (owner: "светится с самого начала, а текст ещё не
     -- начался"). curIdx 0 = nothing is current.
-    local rawActive = activeLine(s, posLive)
+    local rawActive = activeLine(s, linePos)
     local active = math.min(math.max(rawActive, 1), n)
     local curIdx = (rawActive >= 1) and rawActive or 0
     local function pieces(i)
@@ -507,7 +478,7 @@ renderImpl = function()
       enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
     ui.box({ key = "transportSlack", flexGrow = 1 }),
-    ui.label({ key = "time", text = fmtTime(posLive) .. " / " .. fmtTime(s.lengthSec),
+    ui.label({ key = "time", text = fmtTime(linePos) .. " / " .. fmtTime(s.lengthSec),
       fontSize = 11, color = "on_surface_variant" }),
   })
 
@@ -528,12 +499,13 @@ end
 -- ── lifecycle ───────────────────────────────────────────────────────────────
 
 local okState, initial = pcall(function() return noctalia.state.get("media") end)
-if okState and type(initial) == "table" then snap = initial end
+if okState and type(initial) == "table" then snap = initial; lineClockPos = lyrics_lib.interpPos(initial) end
 
 pcall(function()
   noctalia.state.watch("media", function(value)
     if type(value) == "table" then
       snap = value
+      lineClockPos = lyrics_lib.interpPos(value)
       render()
     end
   end)

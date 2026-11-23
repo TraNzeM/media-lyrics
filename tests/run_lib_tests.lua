@@ -80,6 +80,22 @@ ok(lib.isPlaceholderLyrics("纯音乐，请欣赏") == true, "placeholder: 纯�
 ok(lib.isPlaceholderLyrics("[00:00.000] 暂无歌词") == true, "placeholder: 暂无歌词")
 ok(lib.isPlaceholderLyrics("Real lyric here") == false, "placeholder: real lyric false")
 ok(lib.isPlaceholderLyrics("") == false, "placeholder: empty false")
+-- Regression: large real LRC must return false quickly (early exit on size).
+local big = ""
+for i = 1, 300 do big = big .. "[00:" .. string.format("%02d", i % 60) .. ".00]lyric line " .. i .. "\n" end
+ok(lib.isPlaceholderLyrics(big) == false, "placeholder: 300-line LRC false")
+-- performance: 50 calls on 17 KB payload under 20 ms
+local t0 = os.clock()
+for _ = 1, 50 do lib.isPlaceholderLyrics(big) end
+local dt = os.clock() - t0
+ok(dt < 0.020, "placeholder: 50 calls under 20ms (got " .. string.format("%.4f", dt) .. ")")
+-- small placeholders still true
+ok(lib.isPlaceholderLyrics("纯音乐") == true, "placeholder: 纯音乐")
+ok(lib.isPlaceholderLyrics("暂无歌词") == true, "placeholder: 暂无歌词")
+ok(lib.isPlaceholderLyrics("纯音乐，请欣赏，谢谢") == true, "placeholder: 纯音乐 variant")
+ok(lib.isPlaceholderLyrics('{"a":1}\n{"b":2}') == true, "placeholder: metadata-only JSON true")
+ok(lib.isPlaceholderLyrics("hello world") == false, "placeholder: plain text false")
+ok(lib.isPlaceholderLyrics("[00:01.00]hello") == false, "placeholder: normal LRC line false")
 
 -- ── stripNetEaseMeta ────────────────────────────────────────────────────────
 local netease = [[作词：张三

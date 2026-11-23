@@ -85,9 +85,8 @@ local lastFull = ""
 
 local function activeLyricLine(m)
   -- Current synced line for the chip (show_lyric_line): last line whose
-  -- timestamp <= posSec. Falls back to the first line before the first
-  -- timestamp (karaoke convention). posSec in the snapshot is ≤150 ms stale
-  -- (service polls), fine for a subtitle.
+  -- timestamp <= projected position. The position is projected from posAtMs via
+  -- lyrics_lib.interpPos, so even the 150 ms-polling snapshot stays on time.
   -- lyricsStatus "choose" = the variant picker published a list; lyrics may
   -- still be live (a picked variant or default kept), so accept it too.
   if m == nil then return nil end
@@ -95,7 +94,7 @@ local function activeLyricLine(m)
   if not m.synced then return nil end
   local lines = m.lyrics
   if type(lines) ~= "table" or #lines == 0 then return nil end
-  local pos = tonumber(m.posSec) or 0
+  local pos = lyrics_lib.interpPos(m)
   local idx = lyrics_lib.activeIndex(lines, pos)
   if idx < 1 then return nil end
   local text = lines[idx] and lines[idx].text or ""

@@ -55,7 +55,7 @@ end
 
 local function interpPos(s)
   if not s then return 0 end
-  return lyrics_lib.interpPos(s.posSec, lastSnapMs, nowMs(), s.playing, s.lengthSec)
+  return lyrics_lib.interpPos(s)
 end
 
 local function activeIndex(s)

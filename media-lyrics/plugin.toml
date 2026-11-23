@@ -10,8 +10,8 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "1.0.2"
-# plugin_api = 51 (v1.1.0 target): enables follow-layer panels and newer UI.
+version = "1.1.0"
+# plugin_api = 51: enables follow-layer panels and newer UI.
 plugin_api = 51
 author = "tranzem"
 license = "MIT"
@@ -31,13 +31,6 @@ default = 0
 # negative values were unreachable. Expose the full useful range.
 min = -2000
 max = 2000
-
-[[setting]]
-key = "karaoke_color"
-type = "color"
-label_key = "settings.karaoke_color.label"
-description_key = "settings.karaoke_color.description"
-default = "primary"
 
 [[setting]]
 key = "panel_size"

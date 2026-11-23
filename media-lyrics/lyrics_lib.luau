@@ -183,12 +183,18 @@ end
 
 -- ── NetEase placeholder detection ──────────────────────────────────────────
 
+local PLACEHOLDER_MAX_BYTES = 4096
+lib.PLACEHOLDER_MAX_BYTES = PLACEHOLDER_MAX_BYTES
+
 local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌词",
   "此歌曲为没有填词的纯音乐", "此歌曲为纯音乐请欣赏", "纯音乐" }
 lib.NETEASE_PLACEHOLDERS = NETEASE_PLACEHOLDERS
 
 function lib.isPlaceholderLyrics(raw)
   raw = raw or ""
+  -- Плейсхолдеры — короткие фразы/несколько credit-строк; настоящий LRC на порядок больше.
+  -- Полнострочные gsub выполняются в C и убивали 25-мс бюджет колбэка (log lyrics_lib.luau:208/209).
+  if #raw > PLACEHOLDER_MAX_BYTES then return false end
   -- A payload made ENTIRELY of metadata/credit rows (raw word-timing JSON,
   -- 作曲-style credit tags) is not lyrics: drop it and keep the lookup chain
   -- hunting. Mixed payloads fall through and are filtered per line in parseLrc.
@@ -196,7 +202,7 @@ function lib.isPlaceholderLyrics(raw)
   for line in raw:gmatch("[^\n]+") do
     if line:match("%S") then
       nonEmpty = nonEmpty + 1
-      if not lib.isNetEaseMetaLine(line) then allMeta = false end
+      if not lib.isNetEaseMetaLine(line) then allMeta = false break end
     end
   end
   if nonEmpty > 0 and allMeta then return true end

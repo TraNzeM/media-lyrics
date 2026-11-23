@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-23
+
 ### Added
 
 - **The active line fills word by word (karaoke) in the panel.** The fill follows the
@@ -14,18 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A `.lrc` next to the audio file is picked up automatically.** For local files the
   sidecar is asked first — before the configured folder and the cache — so the folder
   layout everyone already uses just works.
-- **Drag a lyric line to seek.** Grab the line, drag up or down, and the track jumps to
-  that line's timestamp.
-- **The position moves smoothly.** The progress ring and the karaoke fill glide instead
+- **The position moves smoothly.** The progress bar and the karaoke fill glide instead
   of stepping on the 150 ms polling grid.
-- **Karaoke fill colour** is configurable (`karaoke_color`).
 - **The lyrics list follows the song** — it scrolls to the active line on its own.
-- **Per-track timing offset.** `+`/`-` (100 ms) buttons and a reset next to the
-  progress time let you nudge one track's lyrics independently of the global
-  `offset_ms`; the override is stored in `offsets.json` in the plugin data dir
-  and survives a plugin restart. Keyboard: `Right` = +100 ms, `Left` = -100 ms,
-  `Tab` = reset (same handler as the buttons).
-- **A seek OSD** shows the new position whenever the track is moved.
+- **Per-track timing offset.** `-`/`+` (100 ms) and `reset` live in the footer
+  (bottom-right). The footer shows the current effective offset in ms (for example
+  `Offset +300 ms`) and a hover tooltip explains the block. The override is stored
+  in `offsets.json` and survives a plugin restart. `reset` restores the global
+  `offset_ms`. Keyboard: `Right` = +100 ms, `Left` = -100 ms, `Tab` = reset.
+  A `+` value shows lines earlier, a `-` value later.
 
 ### Changed
 
@@ -34,19 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   battery. Shells without the API keep the poll.
 - Background polling pauses while the system is suspended.
 - The bar widget no longer lights up entirely on hover.
+- **One playback position for every surface.** The panel, mini panel, bar chip and
+  desktop widget all project from the service snapshot's `posAtMs`.
+- **Lyric rows no longer show a "Seek to" tooltip.** Click-to-seek and hover
+  highlight are unchanged. The offset block keeps its own hover tooltip.
+- **Manifest targets plugin API 51** with `layer = "follow"` and
+  `Left`/`Right`/`Tab` key capture declared.
 
 ### Fixed
 
-- **Plain (untimed) lines keep their original file order.** `parseLrc` now tie-breaks
-  lines with equal timestamps (including lines without timestamps) by their position
-  in the file, so `table.sort` no longer shuffles unsynced lyrics. Reported and
-  patch suggested by @Coimbrice.
-
 - **Cyrillic weighs about half an em per glyph instead of a full em.** `charAdv` now
   returns 1.0 only for CJK/emoji (3+ byte sequences) and ~0.58 for other non-ASCII,
-  so Russian lyrics stop being truncated roughly twice too early. LRCLIB User-Agent
-  bumped to 1.0.2; test header now names lua 5.5.
-- **«Loading lyrics...» no longer sticks.** The 45 s watchdog now arms at every
+  so Russian lyrics stop being truncated roughly twice too early.
+- **«Loading lyrics...» no longer sticks.** The 40 s watchdog now arms at every
   point `lyricsStatus` becomes `loading`, and MPRIS metadata drift (title suffix /
   length fill-in) is treated as the same track via `lyrics_lib.sameClaim`.
   - **The bar widget no longer splits the title mid-word.** Width is measured with the
@@ -58,29 +57,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cover on the walked-past track while the clock kept running past its end. The poll
   now re-arms itself after 5 s, and a late lyrics callback from an older track can no
   longer glue the panel to that track.
-- **Playback position never overruns the track duration.** The interpolated clock
-  (snapshot + wall time) is capped to the track length in every entry, for both the
-  timestamp label and the progress bar, including a frozen/dead `playing=true`.
 - **Cover fallback no longer renders as an empty square.** The fallback box used to
   carry a `disc` glyph as a child and an `align` prop, which the host does not
   support on `ui.box` (it dropped the child every tick and spam-logged `box`
   warnings). The fallback is now a centered `ui.column` container, so the disc glyph
   shows again and the log stays clean. Applied to panel, panel-mini and desktop entries.
 
-- **Track key format unified across service.luau.** All sites now use
-  longer leaves the plugin frozen on a stale track (metadata/text/art/timings
-  stuck). Gen-guards in finish paths prevent stale fetches from overwriting the
-  playing track.
-
-- **Metadata with embedded newlines no longer splits the header into stray rows.**
-  `xesam:album` is now collapsed with `singleLine` like the title and artist already
-  were, so an album like `A\nlive` can no longer cut the artist line onto a second
-  row; overflow goes to the marquee as designed.
-- **No lyric line lights up during the instrumental intro.** The active line is
-  now the last line whose timestamp <= playback position (none before the first
-  timestamp); `cursorLine`/`revealKey` no longer fall back to the first line
-  before it starts; fill progress stays 0 until the line's first timestamp.
-
+- **Album names with line breaks no longer split the header into stray rows.**
+  The album text is collapsed to one line when the header is drawn, so an album
+  like `A\nlive` cannot push the artist onto a second row.
 - **A player that leaves `xesam:artist` empty no longer loses its lyrics.** Some players
   `xesam:title` as `Title - Artist`; the title is now split on the last ` - ` when the
   artist is empty, so the track identifies correctly. Fixes the case reported against
@@ -90,6 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   widget), so the position tick only recomputes fill progress; it no longer re-wraps
   every line each tick. Fixes the frozen widget / dropped frames seen with 200+ line
   tracks (regression inherited from 1.0.x).
+- **Large cached lyrics no longer kill the service callback.**
+  `isPlaceholderLyrics` returns early on payloads over 4 KB instead of running
+  expensive full-string sanitise passes inside the host's 25 ms CPU budget; a killed
+  callback used to leave "Loading lyrics..." stuck until the watchdog.
+- **Faster, shorter network failures.** `curl` uses `-m 4 --connect-timeout 2`;
+  two transport failures settle the load with an error instead of walking the
+  whole provider chain. The error text is provider-neutral: "Lyrics services
+  unreachable (network error)".
 
 ## [1.0.2] — 2026-11-17
 

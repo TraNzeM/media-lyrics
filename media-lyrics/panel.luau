@@ -104,7 +104,7 @@ end
 
 local function interpPos(s)
   if not s then return 0 end
-  return lyrics_lib.interpPos(s.posSec, lastSnapMs, nowMs(), s.playing, s.lengthSec)
+  return lyrics_lib.interpPos(s)
 end
 
 local function fmtTime(sec)
@@ -601,19 +601,17 @@ local function buildLyricsBody(s)
         key = "lyr" .. idx,
         align = "center", justify = "center",
         onClick = (lineTime >= 0) and function() queueSeek(lineTime) end or nil,
-        -- Tooltip (plugin API 32): says the row is a seek target and where it
-        -- lands. On a host below 5.2 the prop is logged and ignored, so this is
-        -- a pure enhancement and does not justify raising plugin_api.
-        tooltip = (lineTime >= 0)
-          and (noctalia.tr("panel.seek-to") .. " " .. fmtTime(lineTime)) or nil,
       }
-      -- Hover highlight without a crash: NEVER call render() inside onHover —
-      -- re-creating the tree mid-event-dispatch kills the host (plugin got
-      -- disabled). The panel already re-renders ~6x/s on the media watch, so
-      -- hovering only sets a flag and the next watch tick repaints it.
+      -- Hover highlight без rebuild'а дерева: НЕ вызывать render() внутри
+      -- onHover — пересоздание дерева в pointer-dispatch отключает плагин.
+      -- Запрашиваем публикацию у сервиса: он publish'ит на своём тике 150 мс,
+      -- панель перерисует строку по watch("media").
       rowProps.onHover = function(state)
         local want = (state == "true") and idx or 0
-        if want ~= hoveredLine then hoveredLine = want end
+        if want ~= hoveredLine then
+          hoveredLine = want
+          noctalia.state.set("panel_req", { action = "repaint" })
+        end
       end
       rows[si] = ui.row(rowProps, children)
     elseif countdown > 0 and k >= -half and k <= -1 then
@@ -808,17 +806,6 @@ local function buildInfoRow(s)
     ui.column({ key = "timeCol", gap = 2, align = "center" }, {
       ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
         fontSize = T.fsTime, color = T.colTime }),
-      ui.row({ key = "offsetRow", gap = T.gapMicro, align = "center" }, {
-        ui.button({ key = "offDown (-100)", text = "-", fontSize = 11, variant = "ghost",
-          controlSize = "sm", onClick = function()
-            noctalia.state.set("panel_req", { action = "adjustOffset", delta = -100 }) end }),
-        ui.button({ key = "offUp (+100)", text = "+", fontSize = 11, variant = "ghost",
-          controlSize = "sm", onClick = function()
-            noctalia.state.set("panel_req", { action = "adjustOffset", delta = 100 }) end }),
-        ui.button({ key = "offReset (reset)", text = "reset", fontSize = 11, variant = "ghost",
-          controlSize = "sm", onClick = function()
-            noctalia.state.set("panel_req", { action = "adjustOffset", reset = true }) end }),
-      }),
     }),
   })
 
@@ -1080,9 +1067,38 @@ renderImpl = function()
       if not fills then kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 }) end
       return ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, kids)
     end)(),
-    -- D. footer: provider - mode
-    ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
-      color = T.footer, visible = footerTxt ~= "" }),
+    -- D. footer: provider - mode + offset controls
+    ui.row({ key = "footerRow", align = "center", justify = "space_between" }, {
+      -- Keep the label in the layout even when there is no provider text:
+      -- with justify=space_between the offset buttons must stay pinned to the
+      -- bottom-right even on a track without lyrics (a hidden child can be
+      -- dropped from layout). An empty label draws nothing but holds the slot.
+      ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
+        color = T.footer }),
+      ui.row({ key = "offsetRow", gap = T.gapMicro, align = "center",
+        tooltip = noctalia.tr("panel.offset-hint") }, {
+        -- current effective offset, e.g. "Offset +300 ms"; no maxWidth so
+        -- the short text stays on one line.
+        (function()
+          local off = math.floor(tonumber(s.offsetMs) or 0)
+          local prefix = noctalia.tr("panel.offset")
+          local sign = ""
+          if off > 0 then sign = "+" end
+          return ui.label({ key = "offsetValue",
+            text = prefix .. " " .. sign .. tostring(off) .. " ms",
+            fontSize = T.fsOverline, color = T.footer, fontWeight = "semibold" })
+        end)(),
+        ui.button({ key = "offDown (-100)", text = "-", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = -100 }) end }),
+        ui.button({ key = "offUp (+100)", text = "+", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = 100 }) end }),
+        ui.button({ key = "offReset (reset)", text = "reset", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", reset = true }) end }),
+      }),
+    }),
   }))
 end
 
